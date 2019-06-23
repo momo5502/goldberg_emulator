@@ -91,8 +91,17 @@ namespace nemir
         }
 
     public:
+        class json_null;
         class json_object;
         class json_array;
+
+        using json_type_string  = std::string;
+        using json_type_integer = int64_t;
+        using json_type_number  = double;
+        using json_type_array   = json_array;
+        using json_type_object  = json_object;
+        using json_type_boolean = bool;
+        using json_type_null    = json_null;
 
         template<typename T>
         struct json_value_type
@@ -110,7 +119,6 @@ namespace nemir
         public:
             using mytype = t_json_value<T>;
 
-#ifndef NEMIR_JSON_DISABLE_LOG
             virtual ~t_json_value();
             NEMIR_JSON_INLINE t_json_value();
             NEMIR_JSON_INLINE t_json_value(T const& v);
@@ -118,15 +126,6 @@ namespace nemir
             NEMIR_JSON_INLINE t_json_value(mytype const& v);
             NEMIR_JSON_INLINE t_json_value(mytype&& v)noexcept;
             virtual json_value_container* clone();
-#else
-            virtual ~t_json_value();
-            NEMIR_JSON_INLINE t_json_value();
-            NEMIR_JSON_INLINE t_json_value(T const& v);
-            NEMIR_JSON_INLINE t_json_value(T&& v)noexcept;
-            NEMIR_JSON_INLINE t_json_value(mytype const& v);
-            NEMIR_JSON_INLINE t_json_value(mytype&& v)noexcept;
-            virtual json_value_container* clone();
-#endif
             virtual json_type type() const;
             virtual void* get(json_type t);
         };
@@ -137,17 +136,10 @@ namespace nemir
 
         public:
             using iterator = std::map<std::string, json_value>::iterator;
-#ifndef NEMIR_JSON_DISABLE_LOG
             NEMIR_JSON_INLINE ~json_object();
             NEMIR_JSON_INLINE  json_object();
             NEMIR_JSON_INLINE  json_object(json_object const& c);
             NEMIR_JSON_INLINE  json_object(json_object&& c) noexcept;
-#else
-            NEMIR_JSON_INLINE ~json_object();
-            NEMIR_JSON_INLINE  json_object();
-            NEMIR_JSON_INLINE  json_object(json_object const& c);
-            NEMIR_JSON_INLINE  json_object(json_object&& c) noexcept;
-#endif
 
             NEMIR_JSON_INLINE json_object& operator=(json_object const& c);
             NEMIR_JSON_INLINE json_object& operator=(json_object&& c) noexcept;
@@ -170,17 +162,10 @@ namespace nemir
 
         public:
             using iterator = std::vector<json_value>::iterator;
-#ifndef NEMIR_JSON_DISABLE_LOG
-            NEMIR_JSON_INLINE ~json_array();
-            NEMIR_JSON_INLINE  json_array();
-            NEMIR_JSON_INLINE  json_array(json_array const& c) :_nodes(c._nodes);
-            NEMIR_JSON_INLINE  json_array(json_array&& c) noexcept :_nodes(std::move(c._nodes));
-#else
             NEMIR_JSON_INLINE ~json_array();
             NEMIR_JSON_INLINE  json_array();
             NEMIR_JSON_INLINE  json_array(json_array const& c);
             NEMIR_JSON_INLINE  json_array(json_array&& c) noexcept;
-#endif
 
             NEMIR_JSON_INLINE json_array& operator=(json_array const& c);
             NEMIR_JSON_INLINE json_array& operator=(json_array&& c) noexcept;
@@ -201,13 +186,20 @@ namespace nemir
             NEMIR_JSON_INLINE void emplace_back(Args&& ...args);
         };
 
-        using json_type_string  = std::string;
-        using json_type_integer = int64_t;
-        using json_type_number  = double;
-        using json_type_array   = json_array;
-        using json_type_object  = json_object;
-        using json_type_boolean = bool;
-        using json_type_null    = std::nullptr_t;
+        class json_null
+        {
+            std::nullptr_t _val;
+        public:
+            NEMIR_JSON_INLINE ~json_null();
+            NEMIR_JSON_INLINE  json_null();
+            NEMIR_JSON_INLINE  json_null(std::nullptr_t c);
+            NEMIR_JSON_INLINE  json_null(json_null const& c);
+            NEMIR_JSON_INLINE  json_null(json_null&& c) noexcept;
+
+            NEMIR_JSON_INLINE json_null& operator=(std::nullptr_t c);
+            NEMIR_JSON_INLINE json_null& operator=(json_null const& c);
+            NEMIR_JSON_INLINE json_null& operator=(json_null&& c) noexcept;
+        };
 
         // Default constructor, empty value
         NEMIR_JSON_INLINE json_value();
@@ -232,7 +224,7 @@ NEMIR_JSON_INLINE json_value(value_type const &v);\
 NEMIR_JSON_INLINE json_value(value_type &&v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type const& v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type && v);\
-NEMIR_JSON_INLINE operator const value_type  () const;
+NEMIR_JSON_INLINE operator const value_type & () const;
 
 #define JSON_REFERENCE_OPERATOR_DEF(json_type)\
 NEMIR_JSON_INLINE operator json_type& ();
@@ -280,31 +272,31 @@ NEMIR_JSON_INLINE operator json_type& ();
     // End of class json_value
 
     // Start specializations of json_value_type<T>
-    template<>struct json_value::json_value_type<std::string>
+    template<>struct json_value::json_value_type<json_value::json_type_string>
     {
         constexpr static json_type type = json_type::string;
     };
-    template<>struct json_value::json_value_type<int64_t>
+    template<>struct json_value::json_value_type<json_value::json_type_integer>
     {
         constexpr static json_type type = json_type::integer;
     };
-    template<>struct json_value::json_value_type<double>
+    template<>struct json_value::json_value_type<json_value::json_type_number>
     {
         constexpr static json_type type = json_type::number;
     };
-    template<>struct json_value::json_value_type<json_value::json_array>
+    template<>struct json_value::json_value_type<json_value::json_type_array>
     {
         constexpr static json_type type = json_type::array;
     };
-    template<>struct json_value::json_value_type<json_value::json_object>
+    template<>struct json_value::json_value_type<json_value::json_type_object>
     {
         constexpr static json_type type = json_type::object;
     };
-    template<>struct json_value::json_value_type<bool>
+    template<>struct json_value::json_value_type<json_value::json_type_boolean>
     {
         constexpr static json_type type = json_type::boolean;
     };
-    template<>struct json_value::json_value_type<std::nullptr_t>
+    template<>struct json_value::json_value_type<json_value::json_type_null>
     {
         constexpr static json_type type = json_type::null;
     };
@@ -436,7 +428,29 @@ NEMIR_JSON_INLINE operator json_type& ();
     NEMIR_JSON_INLINE void json_value::json_array::emplace_back(Args&& ...args) { _nodes.emplace_back(std::move(args...)); }
 
     // end of json_array
+    // start of json_null
+    NEMIR_JSON_INLINE json_value::json_null::~json_null() {}
+    NEMIR_JSON_INLINE json_value::json_null::json_null() :_val(nullptr) {}
+    NEMIR_JSON_INLINE json_value::json_null::json_null(std::nullptr_t c) : _val(nullptr) {}
+    NEMIR_JSON_INLINE json_value::json_null::json_null(json_null const& c) : _val(nullptr) {}
+    NEMIR_JSON_INLINE json_value::json_null::json_null(json_null&& c) noexcept :_val(nullptr) {}
 
+    NEMIR_JSON_INLINE json_value::json_null& json_value::json_null::operator=(std::nullptr_t c)
+    {
+        _val = nullptr;
+        return *this;
+    }
+    NEMIR_JSON_INLINE json_value::json_null& json_value::json_null::operator=(json_null const& c)
+    {
+        _val = nullptr;
+        return *this;
+    }
+    NEMIR_JSON_INLINE json_value::json_null& json_value::json_null::operator=(json_null&& c) noexcept
+    {
+        _val = nullptr;
+        return *this;
+    }
+    // end of json_null
     // start of json_value
 
     // Default constructor, empty value
@@ -486,7 +500,7 @@ NEMIR_JSON_INLINE json_value& json_value::operator=(value_type && v)\
     container.reset(new json_value::t_json_value<json_type>(std::move(v)));\
     return *this;\
 }\
-NEMIR_JSON_INLINE json_value::operator const value_type  () const { return static_cast<value_type>(*reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type))); }
+NEMIR_JSON_INLINE json_value::operator const value_type & () const { return static_cast<value_type>(*reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type))); }
 
 #define JSON_REFERENCE_OPERATOR(json_type)\
 NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type)); }
@@ -519,7 +533,7 @@ NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<
 
 #undef JSON_VALUE_CONSTRUCTION_BY_VALUE
 
-        // end of json_value
+    // end of json_value
 
 
     using json_value_string  = json_value::t_json_value<nemir::json_value::json_type_string >;
