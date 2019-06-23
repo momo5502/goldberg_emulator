@@ -224,7 +224,7 @@ NEMIR_JSON_INLINE json_value(value_type const &v);\
 NEMIR_JSON_INLINE json_value(value_type &&v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type const& v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type && v);\
-NEMIR_JSON_INLINE operator const value_type () const;
+NEMIR_JSON_INLINE operator const value_type & () const;
 
 #define JSON_REFERENCE_OPERATOR_DEF(json_type)\
 NEMIR_JSON_INLINE operator json_type& ();
@@ -499,7 +499,7 @@ NEMIR_JSON_INLINE json_value& json_value::operator=(value_type && v)\
     container.reset(new json_value::t_json_value<json_type>(std::move(v)));\
     return *this;\
 }\
-NEMIR_JSON_INLINE json_value::operator const value_type () const { return static_cast<value_type>(*reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type))); }
+NEMIR_JSON_INLINE json_value::operator const value_type & () const { return *reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type)); }
 
 #define JSON_REFERENCE_OPERATOR(json_type)\
 NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type)); }
