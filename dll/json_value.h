@@ -236,7 +236,6 @@ NEMIR_JSON_INLINE operator json_type& ();
         NEMIR_JSON_INLINE json_value& operator=(const char* v);
 
         JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_string, json_type_string)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int8_t, json_type_integer)
         JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int16_t, json_type_integer)
         JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int32_t, json_type_integer)
         JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_integer, json_type_integer)
@@ -513,7 +512,6 @@ NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<
     }
 
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_string, json_value::json_type_string)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int8_t, json_value::json_type_integer)
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(int16_t, json_value::json_type_integer)
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(int32_t, json_value::json_type_integer)
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_integer, json_value::json_type_integer)
