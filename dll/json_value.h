@@ -231,7 +231,7 @@ NEMIR_JSON_INLINE json_value(value_type const &v);\
 NEMIR_JSON_INLINE json_value(value_type &&v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type const& v);\
 NEMIR_JSON_INLINE json_value& operator=(value_type && v);\
-NEMIR_JSON_INLINE operator const value_type&  () const;
+NEMIR_JSON_INLINE operator const value_type  () const;
 
 #define JSON_REFERENCE_OPERATOR_DEF(json_type)\
 NEMIR_JSON_INLINE operator json_type& ();
@@ -242,28 +242,39 @@ NEMIR_JSON_INLINE operator json_type& ();
         NEMIR_JSON_INLINE json_value(const char* v);
         NEMIR_JSON_INLINE json_value& operator=(const char* v);
 
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_string , json_type_string)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int16_t          , json_type_integer)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int32_t          , json_type_integer)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_integer, json_type_integer)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_number , json_type_number)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_array  , json_type_array)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_object , json_type_object)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_null   , json_type_null)
-        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_boolean, json_type_boolean)
+        JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_string, json_type_string)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int8_t, json_type_integer)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int16_t, json_type_integer)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(int32_t, json_type_integer)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_integer, json_type_integer)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_number, json_type_number)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_array, json_type_array)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_object, json_type_object)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_null, json_type_null)
+            JSON_VALUE_CONSTRUCTOR_BY_VALUE_DEF(json_type_boolean, json_type_boolean)
 
-        JSON_REFERENCE_OPERATOR_DEF(json_type_string)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_integer)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_number)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_array)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_object)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_null)
-        JSON_REFERENCE_OPERATOR_DEF(json_type_boolean)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_string)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_integer)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_number)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_array)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_object)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_null)
+            JSON_REFERENCE_OPERATOR_DEF(json_type_boolean)
 
-        NEMIR_JSON_INLINE json_type type() const;
-        NEMIR_JSON_INLINE json_value& operator[](std::string const& key);
-        NEMIR_JSON_INLINE json_value& operator[](const char* key);
-        NEMIR_JSON_INLINE json_value& operator[](size_t key);
+            NEMIR_JSON_INLINE json_type type() const { return container->type(); }
+
+        NEMIR_JSON_INLINE json_value& operator[](std::string const& key)
+        {
+            return static_cast<json_type_object&>(*this)[key];
+        }
+        NEMIR_JSON_INLINE json_value& operator[](const char* key)
+        {
+            return static_cast<json_type_object&>(*this)[key];
+        }
+        NEMIR_JSON_INLINE json_value& operator[](size_t key)
+        {
+            return static_cast<json_type_array&>(*this)[key];
+        }
     };
     // End of class json_value
 
@@ -428,11 +439,14 @@ NEMIR_JSON_INLINE operator json_type& ();
     // start of json_value
 
     // Default constructor, empty value
-    NEMIR_JSON_INLINE json_value::json_value() : container(new t_json_value<json_type_null>){}
+    NEMIR_JSON_INLINE json_value::json_value() : container(new t_json_value<json_type_null>)
+    {}
     // Copy constructor, clone from derived class
-    NEMIR_JSON_INLINE json_value::json_value(json_value const& c) : container(c.container->clone()){}
+    NEMIR_JSON_INLINE json_value::json_value(json_value const& c) : container(c.container->clone())
+    {}
     // Move constructor, move pointer
-    NEMIR_JSON_INLINE json_value::json_value(json_value&& c) noexcept : container(std::move(c.container)){}
+    NEMIR_JSON_INLINE json_value::json_value(json_value&& c) noexcept : container(std::move(c.container))
+    {}
 
     // Copy operator
     NEMIR_JSON_INLINE json_value& json_value::operator=(json_value const& c)
@@ -449,11 +463,13 @@ NEMIR_JSON_INLINE operator json_type& ();
 
     // Json value constuctor with copy t_json_value
     template<typename T>
-    NEMIR_JSON_INLINE json_value::json_value(t_json_value<T> const& v) :container(new t_json_value<T>(v)){}
+    NEMIR_JSON_INLINE json_value::json_value(t_json_value<T> const& v) :container(new t_json_value<T>(v))
+    {}
     // Json value constuctor with move t_json_value
     template<typename T>
     NEMIR_JSON_INLINE json_value::json_value(t_json_value<T>&& v) noexcept :
-        container(new t_json_value<T>(std::move(v))){}
+        container(new t_json_value<T>(std::move(v)))
+    {}
 
 
 #define JSON_VALUE_CONSTRUCTOR_BY_VALUE(value_type, json_type) \
@@ -469,7 +485,7 @@ NEMIR_JSON_INLINE json_value& json_value::operator=(value_type && v)\
     container.reset(new json_value::t_json_value<json_type>(std::move(v)));\
     return *this;\
 }\
-NEMIR_JSON_INLINE json_value::operator const value_type & () const { return static_cast<value_type>(*reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type))); }
+NEMIR_JSON_INLINE json_value::operator const value_type  () const { return static_cast<value_type>(*reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type))); }
 
 #define JSON_REFERENCE_OPERATOR(json_type)\
 NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<json_type*>(get(json_value::json_value_type<json_type>::type)); }
@@ -481,14 +497,15 @@ NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<
         return *this;
     }
 
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_string , json_value::json_type_string)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int16_t                      , json_value::json_type_integer)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int32_t                      , json_value::json_type_integer)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_string, json_value::json_type_string)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int8_t, json_value::json_type_integer)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int16_t, json_value::json_type_integer)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(int32_t, json_value::json_type_integer)
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_integer, json_value::json_type_integer)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_number , json_value::json_type_number)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_object , json_value::json_type_object)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_array  , json_value::json_type_array)
-    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_null   , json_value::json_type_null)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_number, json_value::json_type_number)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_object, json_value::json_type_object)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_array, json_value::json_type_array)
+    JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_null, json_value::json_type_null)
     JSON_VALUE_CONSTRUCTOR_BY_VALUE(json_value::json_type_boolean, json_value::json_type_boolean)
 
     JSON_REFERENCE_OPERATOR(json_value::json_type_string)
@@ -501,13 +518,7 @@ NEMIR_JSON_INLINE json_value::operator json_type& () { return *reinterpret_cast<
 
 #undef JSON_VALUE_CONSTRUCTION_BY_VALUE
 
-    NEMIR_JSON_INLINE json_type json_value::type() const { return container->type(); }
-
-    NEMIR_JSON_INLINE json_value& json_value::operator[](std::string const& key) { return static_cast<json_type_object&>(*this)[key]; }
-    NEMIR_JSON_INLINE json_value& json_value::operator[](const char* key) { return static_cast<json_type_object&>(*this)[key]; }
-    NEMIR_JSON_INLINE json_value& json_value::operator[](size_t key) { return static_cast<json_type_array&>(*this)[key]; }
-
-    // end of json_value
+        // end of json_value
 
 
     using json_value_string  = json_value::t_json_value<nemir::json_value::json_type_string >;
