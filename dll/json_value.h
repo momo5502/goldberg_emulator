@@ -57,17 +57,18 @@ namespace nemir
         null    // std::nullptr_t
     };
 
+    constexpr const char* strs[] = {
+        "string",
+        "integer",
+        "number",
+        "array",
+        "object",
+        "boolean",
+        "null"
+    };
+
     constexpr const char* json_type_to_string(json_type t)
     {
-        const char* strs[] = {
-            "string",
-            "integer",
-            "number",
-            "array",
-            "object",
-            "boolean",
-            "null"
-        };
         return strs[static_cast<int>(t)];
     }
 
