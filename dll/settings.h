@@ -32,6 +32,33 @@ struct Mod_entry {
     PublishedFileId_t id;
     std::string title;
     std::string path;
+    
+    std::string previewURL;
+    
+    EWorkshopFileType fileType = k_EWorkshopFileTypeCommunity;
+    std::string description;
+	uint64 steamIDOwner;
+	uint32 timeCreated = 1554997000;
+	uint32 timeUpdated = 1554997000;
+	uint32 timeAddedToUserList = 1554997000;
+    ERemoteStoragePublishedFileVisibility visibility;
+	bool banned = false;
+	bool acceptedForUse = true;
+	bool tagsTruncated = false;
+	std::string tags;	
+	// file/url information
+	UGCHandle_t handleFile = k_UGCHandleInvalid;
+	UGCHandle_t handlePreviewFile = k_UGCHandleInvalid;
+	std::string primaryFileName;
+	int32 primaryFileSize = 1000000;
+	int32 previewFileSize = 1000000;
+	std::string workshopItemURL;
+    // voting information
+	uint32 votesUp = 1;
+	uint32 votesDown = 0;
+	float score = 1.0f;
+	// collection details
+	uint32 numChildren;	
 };
 
 struct Leaderboard_config {
@@ -116,6 +143,9 @@ public:
 
     //mod stuff
     void addMod(PublishedFileId_t id, std::string title, std::string path);
+    void addModDetails(PublishedFileId_t id, std::string previewURL, EWorkshopFileType fileType, std::string description, 
+                uint64 steamIDOwner, uint32 timeCreated, uint32 timeUpdated, uint32 timeAddedToUserList, ERemoteStoragePublishedFileVisibility visibility, bool banned, bool acceptedForUse, bool tagsTruncated, 
+                std::string tags, std::string primaryFileName, int32 primaryFileSize, int32 previewFileSize, std::string workshopItemURL, uint32 votesUp, uint32 votesDown, float score, uint32 numChildren);
     Mod_entry getMod(PublishedFileId_t id);
     bool isModInstalled(PublishedFileId_t id);
     std::set<PublishedFileId_t> modSet();

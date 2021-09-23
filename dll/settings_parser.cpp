@@ -552,14 +552,58 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
 
     {
         std::string mod_path = Local_Storage::get_game_settings_path() + "mods";
-        std::vector<std::string> paths = Local_Storage::get_filenames_path(mod_path);
-        for (auto & p: paths) {
-            PRINT_DEBUG("mod directory %s\n", p.c_str());
-            try {
-                PublishedFileId_t id = std::stoull(p);
-                settings_client->addMod(id, p, mod_path + PATH_SEPARATOR + p);
-                settings_server->addMod(id, p, mod_path + PATH_SEPARATOR + p);
-            } catch (...) {}
+
+        //try to load mods.json
+        nlohmann::json mod_items = nlohmann::json::object();
+        static constexpr auto mods_json_file = "mods.json";
+        std::string mods_json_path = Local_Storage::get_game_settings_path() + mods_json_file;
+        if (local_storage->load_json(mods_json_path, mod_items)) {
+            //iterate over loaded mods
+            for (auto mod = mod_items.begin(); mod != mod_items.end(); ++mod) {
+                try {
+                    PublishedFileId_t id = std::stoull(mod.key());
+                    std::string title = mod.value().value("title", std::string(mod.key()));
+                    std::string path = mod.value().value("path", mod_path + PATH_SEPARATOR + std::string(mod.key()));
+                    std::string previewURL = mod.value().value("preview_url", std::string(""));
+                    EWorkshopFileType fileType = k_EWorkshopFileTypeCommunity;
+                    std::string description = mod.value().value("description", std::string(""));
+                    uint64 steamIDOwner = mod.value().value("steam_id_owner",(uint64) 0);               //TODO own id
+                    uint32 timeCreated = mod.value().value("time_created",(uint32) 1554997000);
+                    uint32 timeUpdated = mod.value().value("time_updated",(uint32) 1554997000);
+                    uint32 timeAddedToUserList = mod.value().value("time_added",(uint32) 1554997000);
+                    ERemoteStoragePublishedFileVisibility visibility = k_ERemoteStoragePublishedFileVisibilityPublic;
+                    bool banned = false;
+                    bool acceptedForUse = true;
+                    bool tagsTruncated = false;
+                    std::string tags = mod.value().value("tags", std::string(""));
+                    std::string primaryFileName = mod.value().value("primary_filename", std::string(""));
+                    int32 primaryFileSize = mod.value().value("primary_filesize", (int32) 1000000);
+                    int32 previewFileSize = mod.value().value("preview_filesize", (int32) 1000000);
+                    std::string workshopItemURL = mod.value().value("workshop_item_url", std::string(""));
+                    uint32 votesUp = mod.value().value("upvotes",(uint32) 1);
+                    uint32 votesDown = mod.value().value("downvotes",(uint32) 0);
+                    float score = 1.0;
+                    uint32 numChildren = mod.value().value("num_children",(uint32) 0);
+
+                    settings_client->addMod(id, title, path);
+                    settings_client->addModDetails(id, previewURL, fileType, description, steamIDOwner, timeCreated, timeUpdated, 
+                        timeAddedToUserList, visibility, banned, acceptedForUse, tagsTruncated, tags, primaryFileName, primaryFileSize, previewFileSize, workshopItemURL, votesUp, votesDown, score, numChildren);
+                    settings_server->addMod(id, title, path);
+                    settings_server->addModDetails(id, previewURL, fileType, description, steamIDOwner, timeCreated, timeUpdated, 
+                        timeAddedToUserList, visibility, banned, acceptedForUse, tagsTruncated, tags, primaryFileName, primaryFileSize, previewFileSize, workshopItemURL, votesUp, votesDown, score, numChildren);
+                } catch (std::exception& e) {PRINT_DEBUG("MODLOADER ERROR: %s\n", e.what());}
+            }
+        } else {
+            //Load mods the old way, if there is no mods.json
+            std::vector<std::string> paths = Local_Storage::get_filenames_path(mod_path);
+            for (auto & p: paths) {
+                PRINT_DEBUG("mod directory %s\n", p.c_str());
+                try {
+                    PublishedFileId_t id = std::stoull(p);
+                    settings_client->addMod(id, p, mod_path + PATH_SEPARATOR + p);
+                    settings_server->addMod(id, p, mod_path + PATH_SEPARATOR + p);
+                } catch (...) {}
+            }
         }
     }
 
