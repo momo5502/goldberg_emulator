@@ -128,6 +128,38 @@ void Settings::addMod(PublishedFileId_t id, std::string title, std::string path)
     mods.push_back(new_entry);
 }
 
+void Settings::addModDetails(PublishedFileId_t id, std::string previewURL, EWorkshopFileType fileType, std::string description, 
+        uint64 steamIDOwner, uint32 timeCreated, uint32 timeUpdated, uint32 timeAddedToUserList, ERemoteStoragePublishedFileVisibility visibility, bool banned, bool acceptedForUse, bool tagsTruncated, 
+        std::string tags, std::string primaryFileName, int32 primaryFileSize, int32 previewFileSize, std::string workshopItemURL, uint32 votesUp, uint32 votesDown, float score, uint32 numChildren)
+{
+    auto f = std::find_if(mods.begin(), mods.end(), [&id](Mod_entry const& item) { return item.id == id; });
+    if (mods.end() != f) {
+        f->previewURL = previewURL;
+
+        f->fileType = fileType;
+        f->description = description;
+        f->steamIDOwner = steamIDOwner;
+        f->timeCreated = timeCreated;
+        f->timeUpdated = timeUpdated;
+        f->timeAddedToUserList= timeAddedToUserList;
+        f->visibility = visibility;
+        f->banned = banned;
+        f->acceptedForUse = acceptedForUse;
+        f->tagsTruncated = tagsTruncated;
+        f->tags = tags;
+        f->handleFile;
+        f->handlePreviewFile;
+        f->primaryFileName = primaryFileName;
+        f->primaryFileSize = primaryFileSize;
+        f->previewFileSize = previewFileSize;
+        f->workshopItemURL = workshopItemURL;
+        f->votesUp = votesUp;
+        f->votesDown = votesDown;
+        f->score = score;
+        f->numChildren = numChildren;
+    }
+}
+
 Mod_entry Settings::getMod(PublishedFileId_t id)
 {
     auto f = std::find_if(mods.begin(), mods.end(), [&id](Mod_entry const& item) { return item.id == id; });

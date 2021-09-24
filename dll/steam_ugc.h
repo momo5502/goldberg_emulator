@@ -67,11 +67,29 @@ void set_details(PublishedFileId_t id, SteamUGCDetails_t *pDetails)
         if (settings->isModInstalled(id)) {
             pDetails->m_eResult = k_EResultOK;
             pDetails->m_nPublishedFileId = id;
-            pDetails->m_eFileType = k_EWorkshopFileTypeCommunity;
             pDetails->m_nCreatorAppID = settings->get_local_game_id().AppID();
             pDetails->m_nConsumerAppID = settings->get_local_game_id().AppID();
-            snprintf(pDetails->m_rgchTitle, sizeof(pDetails->m_rgchDescription), "%s", settings->getMod(id).title.c_str());
-            //TODO
+            
+            snprintf(pDetails->m_rgchTitle, k_cchPublishedDocumentTitleMax, "%s", settings->getMod(id).title.c_str());
+            pDetails->m_eFileType = settings->getMod(id).fileType;
+            snprintf(pDetails->m_rgchDescription, k_cchPublishedDocumentDescriptionMax, "%s", settings->getMod(id).description.c_str());
+            pDetails->m_ulSteamIDOwner = settings->get_local_steam_id().ConvertToUint64();
+            pDetails->m_rtimeCreated = settings->getMod(id).timeCreated;
+            pDetails->m_rtimeUpdated = settings->getMod(id).timeUpdated;
+            pDetails->m_rtimeAddedToUserList= settings->getMod(id).timeAddedToUserList;
+            pDetails->m_eVisibility = settings->getMod(id).visibility;
+            pDetails->m_bBanned = settings->getMod(id).banned;
+	        pDetails->m_bAcceptedForUse = settings->getMod(id).acceptedForUse;
+	        pDetails->m_bTagsTruncated = settings->getMod(id).tagsTruncated;
+            snprintf(pDetails->m_rgchTags, k_cchTagListMax, "%s", settings->getMod(id).tags.c_str());
+            snprintf(pDetails->m_pchFileName, k_cchFilenameMax, "%s", settings->getMod(id).primaryFileName.c_str());
+            pDetails->m_nFileSize = settings->getMod(id).primaryFileSize;
+            pDetails->m_nPreviewFileSize = settings->getMod(id).previewFileSize;
+            snprintf(pDetails->m_rgchURL, k_cchPublishedFileURLMax, "%s", settings->getMod(id).workshopItemURL.c_str());
+	        pDetails->m_unVotesUp = settings->getMod(id).votesUp;
+	        pDetails->m_unVotesDown = settings->getMod(id).votesDown;
+	        pDetails->m_flScore = settings->getMod(id).score;
+            pDetails->m_unNumChildren = settings->getMod(id).numChildren;
         } else {
             pDetails->m_nPublishedFileId = id;
             pDetails->m_eResult = k_EResultFail;
@@ -203,7 +221,23 @@ bool GetQueryUGCTagDisplayName( UGCQueryHandle_t handle, uint32 index, uint32 in
 bool GetQueryUGCPreviewURL( UGCQueryHandle_t handle, uint32 index, STEAM_OUT_STRING_COUNT(cchURLSize) char *pchURL, uint32 cchURLSize )
 {
     PRINT_DEBUG("Steam_UGC::GetQueryUGCPreviewURL\n");
-    return false;
+    std::lock_guard<std::recursive_mutex> lock(global_mutex);
+    
+    auto request = std::find_if(ugc_queries.begin(), ugc_queries.end(), [&handle](struct UGC_query const& item) { return item.handle == handle; });
+    if (ugc_queries.end() == request) {
+        return false;
+    }
+
+    if (index >= request->results.size()) {
+        return false;
+    }
+
+    auto it = request->results.begin();
+    //std::advance(it, index);
+    PRINT_DEBUG("Steam_UGC::GetQueryUGCPreviewURL: %u %s\n", *it, settings->getMod(*it).previewURL.c_str());
+    snprintf(pchURL, cchURLSize, "%s", settings->getMod(*it).previewURL.c_str());
+    return true;
+    // return false;
 }
 
 
@@ -713,8 +747,8 @@ bool GetItemInstallInfo( PublishedFileId_t nPublishedFileID, uint64 *punSizeOnDi
         return false;
     }
 
-    if (punSizeOnDisk) *punSizeOnDisk = 1000000;
-    if (punTimeStamp) *punTimeStamp = 1554997000;
+    if (punSizeOnDisk) *punSizeOnDisk = settings->getMod(nPublishedFileID).primaryFileSize;
+    if (punTimeStamp) *punTimeStamp = settings->getMod(nPublishedFileID).timeCreated;
     if (pchFolder && cchFolderSize) {
         snprintf(pchFolder, cchFolderSize, "%s", settings->getMod(nPublishedFileID).path.c_str());
     }
