@@ -31,6 +31,7 @@ public ISteamUtils006,
 public ISteamUtils007,
 public ISteamUtils008,
 public ISteamUtils009,
+public ISteamUtils010,
 public ISteamUtils
 {
 private:
@@ -403,6 +404,27 @@ ESteamIPv6ConnectivityState GetIPv6ConnectivityState( ESteamIPv6ConnectivityProt
 {
     PRINT_DEBUG("GetIPv6ConnectivityState\n");
     return k_ESteamIPv6ConnectivityState_Unknown;
+}
+
+// returns true if currently running on the Steam Deck device
+bool IsSteamRunningOnSteamDeck()
+{
+    PRINT_DEBUG("IsSteamRunningOnSteamDeck\n");
+    return false;
+}
+
+// Opens a floating keyboard over the game content and sends OS keyboard keys directly to the game.
+// The text field position is specified in pixels relative the origin of the game window and is used to position the floating keyboard in a way that doesn't cover the text field
+bool ShowFloatingGamepadTextInput( EFloatingGamepadTextInputMode eKeyboardMode, int nTextFieldXPosition, int nTextFieldYPosition, int nTextFieldWidth, int nTextFieldHeight )
+{
+    PRINT_DEBUG("ShowFloatingGamepadTextInput\n");
+    return false;
+}
+
+// In game launchers that don't have controller support you can call this to have Steam Input translate the controller input into mouse/kb to navigate the launcher
+void SetGameLauncherMode( bool bLauncherMode )
+{
+    PRINT_DEBUG("SetGameLauncherMode\n");
 }
 
 };
