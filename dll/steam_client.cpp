@@ -398,6 +398,8 @@ ISteamUtils *Steam_Client::GetISteamUtils( HSteamPipe hSteamPipe, const char *pc
         return (ISteamUtils *)(void *)(ISteamUtils008 *)steam_utils_temp;
     } else if (strcmp(pchVersion, "SteamUtils009") == 0) {
         return (ISteamUtils *)(void *)(ISteamUtils009 *)steam_utils_temp;
+    } else if (strcmp(pchVersion, "SteamUtils010") == 0) {
+        return (ISteamUtils *)(void *)(ISteamUtils010 *)steam_utils_temp;
     } else if (strcmp(pchVersion, STEAMUTILS_INTERFACE_VERSION) == 0) {
         return (ISteamUtils *)(void *)(ISteamUtils *)steam_utils_temp;
     } else {

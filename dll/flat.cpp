@@ -1155,9 +1155,9 @@ STEAMAPI_API bool SteamAPI_ISteamUtils_InitFilterText( ISteamUtils* self, uint32
     return (ptr)->InitFilterText(unFilterOptions);
 }
 
-STEAMAPI_API int SteamAPI_ISteamUtils_FilterText( ISteamUtils* self, ETextFilteringContext eContext, uint64_steamid sourceSteamID, const char * pchInputMessage, char * pchOutFilteredText, uint32 nByteSizeOutFilteredText )
+STEAMAPI_API int SteamAPI_ISteamUtils_FilterText( ISteamUtils* self, ETextFilteringContext eContext, CSteamID sourceSteamID, const char *pchInputMessage, char *pchOutFilteredText, uint32 nByteSizeOutFilteredText )
 {
-    //Note: older function only has less arguments
+    //Note: older function had different function signature for (int type for sourceSteamID)
     int test1 = ((char *)self - (char*)get_steam_client()->steam_utils);
     int test2 = ((char *)self - (char*)get_steam_client()->steam_gameserver_utils);
     auto ptr = get_steam_client()->steam_gameserver_utils;
@@ -1178,6 +1178,42 @@ STEAMAPI_API ESteamIPv6ConnectivityState SteamAPI_ISteamUtils_GetIPv6Connectivit
     }
 
     return (ptr)->GetIPv6ConnectivityState(eProtocol);
+}
+
+STEAMAPI_API bool SteamAPI_ISteamUtils_IsSteamRunningOnSteamDeck( ISteamUtils* self )
+{
+    int test1 = ((char *)self - (char*)get_steam_client()->steam_utils);
+    int test2 = ((char *)self - (char*)get_steam_client()->steam_gameserver_utils);
+    auto ptr = get_steam_client()->steam_gameserver_utils;
+    if (test1 >= 0 && (test2 < 0 || test1 < test2)) {
+        ptr = get_steam_client()->steam_utils;
+    }
+
+    return (ptr)->IsSteamRunningOnSteamDeck();
+}
+
+STEAMAPI_API bool SteamAPI_ISteamUtils_ShowFloatingGamepadTextInput( ISteamUtils* self, EFloatingGamepadTextInputMode eKeyboardMode, int nTextFieldXPosition, int nTextFieldYPosition, int nTextFieldWidth, int nTextFieldHeight )
+{
+    int test1 = ((char *)self - (char*)get_steam_client()->steam_utils);
+    int test2 = ((char *)self - (char*)get_steam_client()->steam_gameserver_utils);
+    auto ptr = get_steam_client()->steam_gameserver_utils;
+    if (test1 >= 0 && (test2 < 0 || test1 < test2)) {
+        ptr = get_steam_client()->steam_utils;
+    }
+
+    return (ptr)->ShowFloatingGamepadTextInput(eKeyboardMode, nTextFieldXPosition, nTextFieldYPosition, nTextFieldWidth, nTextFieldHeight);
+}
+
+STEAMAPI_API void SteamAPI_ISteamUtils_SetGameLauncherMode( ISteamUtils* self, bool bLauncherMode )
+{
+    int test1 = ((char *)self - (char*)get_steam_client()->steam_utils);
+    int test2 = ((char *)self - (char*)get_steam_client()->steam_gameserver_utils);
+    auto ptr = get_steam_client()->steam_gameserver_utils;
+    if (test1 >= 0 && (test2 < 0 || test1 < test2)) {
+        ptr = get_steam_client()->steam_utils;
+    }
+
+    return (ptr)->SetGameLauncherMode(bLauncherMode);
 }
 
 STEAMAPI_API ISteamMatchmaking *SteamAPI_SteamMatchmaking_v009()

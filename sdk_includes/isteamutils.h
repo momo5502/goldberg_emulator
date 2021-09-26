@@ -41,6 +41,13 @@ enum EGamepadTextInputLineMode
 	k_EGamepadTextInputLineModeMultipleLines = 1
 };
 
+enum EFloatingGamepadTextInputMode
+{
+    k_EFloatingGamepadTextInputModeModeSingleLine = 0, // Enter dismisses the keyboard
+    k_EFloatingGamepadTextInputModeModeMultipleLines = 1, // User needs to explictly close the keyboard
+    k_EFloatingGamepadTextInputModeModeEmail = 2,
+    k_EFloatingGamepadTextInputModeModeNumeric = 3,
+};
 
 // The context where text filtering is being done
 enum ETextFilteringContext
@@ -64,7 +71,7 @@ extern "C" typedef void (__cdecl *SteamAPIWarningMessageHook_t)(int, const char 
 class ISteamUtils
 {
 public:
-	// return the number of seconds since the user 
+	// return the number of seconds since the user
 	virtual uint32 GetSecondsSinceAppActive() = 0;
 	virtual uint32 GetSecondsSinceComputerActive() = 0;
 
@@ -86,8 +93,8 @@ public:
 	// the destination buffer size should be 4 * height * width * sizeof(char)
 	virtual bool GetImageRGBA( int iImage, uint8 *pubDest, int nDestBufferSize ) = 0;
 
-	// returns the IP of the reporting server for valve - currently only used in Source engine games
-	virtual bool GetCSERIPPort( uint32 *unIP, uint16 *usPort ) = 0;
+	// Deprecated.  Do not call this.
+	STEAM_PRIVATE_API( virtual bool GetCSERIPPort( uint32 *unIP, uint16 *usPort ) = 0; )
 
 	// return the amount of battery power left in the current system in % [0..100], 255 for being on AC power
 	virtual uint8 GetCurrentBatteryPower() = 0;
@@ -146,7 +153,7 @@ public:
 	STEAM_CALL_RESULT( CheckFileSignature_t )
 	virtual SteamAPICall_t CheckFileSignature( const char *szFileName ) = 0;
 
-	// Activates the Big Picture text input dialog which only supports gamepad input
+	// Activates the full-screen text input dialog which takes a initial text string and returns the text the user has typed
 	virtual bool ShowGamepadTextInput( EGamepadTextInputMode eInputMode, EGamepadTextInputLineMode eLineInputMode, const char *pchDescription, uint32 unCharMax, const char *pchExistingText ) = 0;
 
 	// Returns previously entered text & length
@@ -203,6 +210,16 @@ public:
 	// Return what we believe your current ipv6 connectivity to "the internet" is on the specified protocol.
 	// This does NOT tell you if the Steam client is currently connected to Steam via ipv6.
 	virtual ESteamIPv6ConnectivityState GetIPv6ConnectivityState( ESteamIPv6ConnectivityProtocol eProtocol ) = 0;
+
+	// returns true if currently running on the Steam Deck device
+	virtual bool IsSteamRunningOnSteamDeck() = 0;
+
+	// Opens a floating keyboard over the game content and sends OS keyboard keys directly to the game.
+	// The text field position is specified in pixels relative the origin of the game window and is used to position the floating keyboard in a way that doesn't cover the text field
+	virtual bool ShowFloatingGamepadTextInput( EFloatingGamepadTextInputMode eKeyboardMode, int nTextFieldXPosition, int nTextFieldYPosition, int nTextFieldWidth, int nTextFieldHeight ) = 0;
+
+	// In game launchers that don't have controller support you can call this to have Steam Input translate the controller input into mouse/kb to navigate the launcher
+	virtual void SetGameLauncherMode( bool bLauncherMode ) = 0;
 };
 
 #define STEAMUTILS_INTERFACE_VERSION "SteamUtils010"

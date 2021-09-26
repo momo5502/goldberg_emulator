@@ -71,6 +71,7 @@
 #include "isteamutils007.h"
 #include "isteamutils008.h"
 #include "isteamutils009.h"
+#include "isteamutils010.h"
 #include "isteammatchmaking.h"
 #include "isteammatchmaking006.h"
 #include "isteammatchmaking007.h"
