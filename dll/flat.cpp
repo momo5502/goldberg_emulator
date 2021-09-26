@@ -1155,9 +1155,9 @@ STEAMAPI_API bool SteamAPI_ISteamUtils_InitFilterText( ISteamUtils* self, uint32
     return (ptr)->InitFilterText(unFilterOptions);
 }
 
-STEAMAPI_API int SteamAPI_ISteamUtils_FilterText( ISteamUtils* self, ETextFilteringContext eContext, uint64_steamid sourceSteamID, const char * pchInputMessage, char * pchOutFilteredText, uint32 nByteSizeOutFilteredText )
+STEAMAPI_API int SteamAPI_ISteamUtils_FilterText( ISteamUtils* self, ETextFilteringContext eContext, CSteamID sourceSteamID, const char *pchInputMessage, char *pchOutFilteredText, uint32 nByteSizeOutFilteredText )
 {
-    //Note: older function only has less arguments
+    //Note: older function had different function signature for (int type for sourceSteamID)
     int test1 = ((char *)self - (char*)get_steam_client()->steam_utils);
     int test2 = ((char *)self - (char*)get_steam_client()->steam_gameserver_utils);
     auto ptr = get_steam_client()->steam_gameserver_utils;
