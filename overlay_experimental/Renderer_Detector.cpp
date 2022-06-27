@@ -633,8 +633,6 @@ Renderer_Detector::Renderer_Detector():
 
 #include <dlfcn.h>
 
-extern "C" void *_dl_sym(void *, const char *, void *);
-
 static decltype(glXGetProcAddress)* real_glXGetProcAddress = nullptr;
 static decltype(glXGetProcAddressARB)* real_glXGetProcAddressARB = nullptr;
 
@@ -731,7 +729,7 @@ Renderer_Detector::Renderer_Detector():
 extern "C" void* dlsym(void* handle, const char* name)
 {
     if (real_dlsym == nullptr)
-        real_dlsym = (decltype(dlsym)*)_dl_sym(RTLD_NEXT, "dlsym", reinterpret_cast<void*>(dlsym));
+        real_dlsym = (decltype(dlsym)*)dlvsym(RTLD_NEXT, "dlsym", "GLIBC_2.34");
 
     if ( strcmp(name,"dlsym") == 0 )
         return (void*)dlsym;
