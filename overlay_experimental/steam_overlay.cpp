@@ -17,6 +17,11 @@ static constexpr int base_notif_window_id  = 0 * max_window_id;
 static constexpr int base_friend_window_id = 1 * max_window_id;
 static constexpr int base_friend_item_id   = 2 * max_window_id;
 
+std::chrono::milliseconds Notification::fade_in = std::chrono::milliseconds(2000);
+std::chrono::milliseconds Notification::fade_out = std::chrono::milliseconds(2000);
+std::chrono::milliseconds Notification::show_time = std::chrono::milliseconds(6000) + fade_in + fade_out;
+std::chrono::milliseconds Notification::fade_out_start = show_time - fade_out;
+
 int find_free_id(std::vector<int> & ids, int base)
 {
     std::sort(ids.begin(), ids.end());
@@ -355,11 +360,11 @@ bool Steam_Overlay::FriendJoinable(std::pair<const Friend, friend_window_state> 
 {
     Steam_Friends* steamFriends = get_steam_client()->steam_friends;
 
-    if( std::string(steamFriends->GetFriendRichPresence(f.first.id(), "connect")).length() > 0 )
+    if( std::string(steamFriends->GetFriendRichPresence((uint64)f.first.id(), "connect")).length() > 0 )
         return true;
 
     FriendGameInfo_t friend_game_info = {};
-    steamFriends->GetFriendGamePlayed(f.first.id(), &friend_game_info);
+    steamFriends->GetFriendGamePlayed((uint64)f.first.id(), &friend_game_info);
     if (friend_game_info.m_steamIDLobby.IsValid() && (f.second.window_state & window_state_lobby_invite))
         return true;
 
