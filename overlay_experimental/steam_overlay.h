@@ -54,10 +54,10 @@ struct Notification
 {
     static constexpr float width = 0.25;
     static constexpr float height = 5.0;
-    static constexpr std::chrono::milliseconds fade_in   = std::chrono::milliseconds(2000);
-    static constexpr std::chrono::milliseconds fade_out  = std::chrono::milliseconds(2000);
-    static constexpr std::chrono::milliseconds show_time = std::chrono::milliseconds(6000) + fade_in + fade_out;
-    static constexpr std::chrono::milliseconds fade_out_start = show_time - fade_out;
+    static std::chrono::milliseconds fade_in;
+    static std::chrono::milliseconds fade_out;
+    static std::chrono::milliseconds show_time;
+    static std::chrono::milliseconds fade_out_start;
     static constexpr float r = 0.16;
     static constexpr float g = 0.29;
     static constexpr float b = 0.48;

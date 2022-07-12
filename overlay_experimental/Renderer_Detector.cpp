@@ -783,10 +783,13 @@ void Renderer_Detector::renderer_found(Base_Hook* hook)
     game_renderer = hook;
 
     if (hook == nullptr)
+    {
         PRINT_DEBUG("We found a renderer but couldn't hook it, aborting overlay hook.\n");
+    }
     else
+    {
         PRINT_DEBUG("Hooked renderer in %d/%d tries\n", _hook_retries, max_hook_retries);
-
+    }
     hm.RemoveHook(rendererdetect_hook);
 }
 

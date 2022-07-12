@@ -22,6 +22,7 @@ endif()
 
 # Add option to enable experimental build
 option(EMU_EXPERIMENTAL_BUILD "Enable experimental build" OFF)
+option(EMU_OVERLAY "Enable overlay support" OFF)
 
 # Set CXX standard
 set(CMAKE_CXX_STANDARD 14)
@@ -86,6 +87,9 @@ if(WIN32)
     ImGui/impls/windows/*.cpp
     glew/glew.c
   )
+  if(EMU_OVERLAY AND NOT EMU_EXPERIMENTAL_BUILD)
+    message(FATAL_ERROR "You need to enable experimental build to use overlay on Windows")
+  endif()
 elseif(UNIX)
   file(GLOB OVERLAY_EXPERIMENTAL_SRC_SHARED
     overlay_experimental/*.cpp
@@ -105,7 +109,7 @@ endif()
 add_library(${LIB_STEAM_API}
   SHARED
 	$<$<BOOL:${EMU_EXPERIMENTAL_BUILD}>:${DETOURS_SRC_SHARED}>
-	$<$<AND:$<BOOL:${EMU_EXPERIMENTAL_BUILD}>,$<BOOL:${EMU_OVERLAY}>>:${OVERLAY_EXPERIMENTAL_SRC_SHARED}>
+	$<$<BOOL:${EMU_OVERLAY}>:${OVERLAY_EXPERIMENTAL_SRC_SHARED}>
   ${DLL_SRC_SHARED}
   ${PROTO_SRCS}
   ${PROTO_HDRS}
