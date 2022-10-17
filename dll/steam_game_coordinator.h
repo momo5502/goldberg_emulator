@@ -120,7 +120,7 @@ EGCResults RetrieveMessage( uint32 *punMsgType, void *pubDest, uint32 cubDest, u
         if (pcubMsgSize) *pcubMsgSize = outgoing_messages.front().size();
         if (punMsgType && outgoing_messages.front().size() >= sizeof(uint32)) {
             outgoing_messages.front().copy((char *)punMsgType, sizeof(uint32));
-            *punMsgType = ntohl(*punMsgType);
+//            *punMsgType = ntohl(*punMsgType); //in dota sends wrong TypeMsg
         }
 
         outgoing_messages.pop();
