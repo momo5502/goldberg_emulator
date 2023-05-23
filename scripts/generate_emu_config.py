@@ -13,6 +13,7 @@ from steam.enums import common
 from steam.enums.common import EResult
 from steam.enums.emsg import EMsg
 from steam.core.msg import MsgProto
+import argparse
 import os
 import sys
 import json
@@ -23,56 +24,63 @@ import queue
 
 prompt_for_unavailable = True
 
-if len(sys.argv) < 2:
-    print("\nUsage: {} appid appid appid etc..\n\nExample: {} 480\n".format(sys.argv[0], sys.argv[0]))
-    exit(1)
+parser = argparse.ArgumentParser(
+    prog="GenerateEmuConfig",
+    description="Emulator Config Generator"
+)
 
-appids = []
-for id in sys.argv[1:]:
-    appids +=  [int(id)]
+parser.add_argument("app_id", nargs="+", help="Steam application IDs")
+parser.add_argument("-a", "--anonymous", action="store_true", help="Enable anonymous login mode")
+
+args = parser.parse_args()
+
+appids = [int(id) for id in args.app_id]
 
 client = SteamClient()
 if not os.path.exists("login_temp"):
     os.makedirs("login_temp")
 client.set_credential_location("login_temp")
 
-if (len(USERNAME) == 0 or len(PASSWORD) == 0):
-    client.cli_login()
+if args.anonymous:
+    client.anonymous_login()
 else:
-    result = client.login(USERNAME, password=PASSWORD)
-    auth_code, two_factor_code = None, None
-    while result in (EResult.AccountLogonDenied, EResult.InvalidLoginAuthCode,
-                        EResult.AccountLoginDeniedNeedTwoFactor, EResult.TwoFactorCodeMismatch,
-                        EResult.TryAnotherCM, EResult.ServiceUnavailable,
-                        EResult.InvalidPassword,
-                        ):
+    if (len(USERNAME) == 0 or len(PASSWORD) == 0):
+        client.cli_login()
+    else:
+        result = client.login(USERNAME, password=PASSWORD)
+        auth_code, two_factor_code = None, None
+        while result in (EResult.AccountLogonDenied, EResult.InvalidLoginAuthCode,
+                            EResult.AccountLoginDeniedNeedTwoFactor, EResult.TwoFactorCodeMismatch,
+                            EResult.TryAnotherCM, EResult.ServiceUnavailable,
+                            EResult.InvalidPassword,
+                            ):
 
-        if result == EResult.InvalidPassword:
-            print("invalid password, the password you set is wrong.")
-            exit(1)
+            if result == EResult.InvalidPassword:
+                print("invalid password, the password you set is wrong.")
+                exit(1)
 
-        elif result in (EResult.AccountLogonDenied, EResult.InvalidLoginAuthCode):
-            prompt = ("Enter email code: " if result == EResult.AccountLogonDenied else
-                        "Incorrect code. Enter email code: ")
-            auth_code, two_factor_code = input(prompt), None
+            elif result in (EResult.AccountLogonDenied, EResult.InvalidLoginAuthCode):
+                prompt = ("Enter email code: " if result == EResult.AccountLogonDenied else
+                            "Incorrect code. Enter email code: ")
+                auth_code, two_factor_code = input(prompt), None
 
-        elif result in (EResult.AccountLoginDeniedNeedTwoFactor, EResult.TwoFactorCodeMismatch):
-            prompt = ("Enter 2FA code: " if result == EResult.AccountLoginDeniedNeedTwoFactor else
-                        "Incorrect code. Enter 2FA code: ")
-            auth_code, two_factor_code = None, input(prompt)
+            elif result in (EResult.AccountLoginDeniedNeedTwoFactor, EResult.TwoFactorCodeMismatch):
+                prompt = ("Enter 2FA code: " if result == EResult.AccountLoginDeniedNeedTwoFactor else
+                            "Incorrect code. Enter 2FA code: ")
+                auth_code, two_factor_code = None, input(prompt)
 
-        elif result in (EResult.TryAnotherCM, EResult.ServiceUnavailable):
-            if prompt_for_unavailable and result == EResult.ServiceUnavailable:
-                while True:
-                    answer = input("Steam is down. Keep retrying? [y/n]: ").lower()
-                    if answer in 'yn': break
+            elif result in (EResult.TryAnotherCM, EResult.ServiceUnavailable):
+                if prompt_for_unavailable and result == EResult.ServiceUnavailable:
+                    while True:
+                        answer = input("Steam is down. Keep retrying? [y/n]: ").lower()
+                        if answer in 'yn': break
 
-                prompt_for_unavailable = False
-                if answer == 'n': break
+                    prompt_for_unavailable = False
+                    if answer == 'n': break
 
-            client.reconnect(maxdelay=15)
+                client.reconnect(maxdelay=15)
 
-        result = client.login(USERNAME, PASSWORD, None, auth_code, two_factor_code)
+            result = client.login(USERNAME, PASSWORD, None, auth_code, two_factor_code)
 
 
 def get_stats_schema(client, game_id, owner_id):
