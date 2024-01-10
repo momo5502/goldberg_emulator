@@ -3,6 +3,7 @@ cd /d "%~dp0"
 mkdir release\lobby_connect
 del /Q release\lobby_connect\*
 call build_set_protobuf_directories.bat
+setlocal
 "%PROTOC_X86_EXE%" -I.\dll\ --cpp_out=.\dll\ .\dll\net.proto
 call build_env_x86.bat
 cl dll/rtlgenrandom.c dll/rtlgenrandom.def
@@ -10,3 +11,4 @@ cl /DNO_DISK_WRITES /DLOBBY_CONNECT /DEMU_RELEASE_BUILD /DNDEBUG /I%PROTOBUF_X86
 del /Q /S release\lobby_connect\*.lib
 del /Q /S release\lobby_connect\*.exp
 copy Readme_lobby_connect.txt release\lobby_connect\Readme.txt
+endlocal
