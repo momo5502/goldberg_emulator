@@ -211,6 +211,11 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     load_custom_broadcasts(local_storage->get_global_settings_path() + "custom_broadcasts.txt", custom_broadcasts);
     load_custom_broadcasts(Local_Storage::get_game_settings_path() + "custom_broadcasts.txt", custom_broadcasts);
 
+    // Custom master server
+    std::set<IP_PORT> custom_master_server;
+    load_custom_broadcasts(local_storage->get_global_settings_path() + "custom_master_server.txt", custom_master_server);
+    load_custom_broadcasts(Local_Storage::get_game_settings_path() + "custom_master_server.txt", custom_master_server);
+
     // Acount name
     char name[32] = {};
     if (local_storage->get_data_settings("account_name.txt", name, sizeof(name) - 1) <= 0) {
@@ -359,6 +364,8 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->set_port(port);
     settings_client->custom_broadcasts = custom_broadcasts;
     settings_server->custom_broadcasts = custom_broadcasts;
+    settings_client->custom_master_server = custom_master_server;
+    settings_server->custom_master_server = custom_master_server;
     settings_client->disable_networking = disable_networking;
     settings_server->disable_networking = disable_networking;
     settings_client->disable_overlay = disable_overlay;

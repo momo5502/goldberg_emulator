@@ -132,6 +132,9 @@ public:
     //custom broadcasts
     std::set<IP_PORT> custom_broadcasts;
 
+    //custom master server
+    std::set<IP_PORT> custom_master_server;
+
     //stats
     std::map<std::string, Stat_config> getStats() { return stats; }
     void setStatDefiniton(std::string name, struct Stat_config stat_config) {stats[ascii_to_lowercase(name)] = stat_config; }
