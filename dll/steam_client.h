@@ -53,6 +53,9 @@
 
 #include "../overlay_experimental/steam_overlay.h"
 
+#ifndef INCLUDED_STEAM_CLIENT_H
+#define INCLUDED_STEAM_CLIENT_H
+
 enum Steam_Pipe {
     NO_USER,
     CLIENT,
@@ -303,3 +306,5 @@ public:
 
     void DestroyAllInterfaces();
 };
+
+#endif // INCLUDED_STEAM_CLIENT_H

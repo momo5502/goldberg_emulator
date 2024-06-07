@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_SCREENSHOTS_H
+#define INCLUDED_STEAM_SCREENSHOTS_H
+
 struct screenshot_infos_t
 {
 	std::string screenshot_name;
@@ -73,3 +76,5 @@ public:
 	// JPEG, TGA, and PNG formats are supported.
 	ScreenshotHandle AddVRScreenshotToLibrary( EVRScreenshotType eType, const char *pchFilename, const char *pchVRFilename );
 };
+
+#endif // INCLUDED_STEAM_SCREENSHOTS_H

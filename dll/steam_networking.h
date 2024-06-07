@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_NETWORKING_H
+#define INCLUDED_STEAM_NETWORKING_H
+
 //packet timeout in seconds for non connections
 #define ORPHANED_PACKET_TIMEOUT (20)
 #define NEW_CONNECTION_TIMEOUT (20.0)
@@ -1026,3 +1029,5 @@ void Callback(Common_Message *msg)
     }
 }
 };
+
+#endif // INCLUDED_STEAM_NETWORKING_H

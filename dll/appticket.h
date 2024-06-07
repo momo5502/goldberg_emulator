@@ -1,4 +1,7 @@
 
+#ifndef APPTICKET_H
+#define APPTICKET_H
+
 struct AppTicketV1
 {
     // Total ticket size - 16
@@ -298,3 +301,5 @@ public:
         return buffer;
     }
 };
+
+#endif // APPTICKET_H

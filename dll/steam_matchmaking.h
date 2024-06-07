@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MATCHMAKING_H
+#define INCLUDED_STEAM_MATCHMAKING_H
+
 #define SEND_LOBBY_RATE 5.0
 
 #define PENDING_JOIN_TIMEOUT 10.0
@@ -1547,3 +1550,5 @@ void Callback(Common_Message *msg)
 
 
 };
+
+#endif // INCLUDED_STEAM_MATCHMAKING_H

@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_NETWORKING_SOCKETS_H
+#define INCLUDED_STEAM_NETWORKING_SOCKETS_H
+
 struct Listen_Socket {
     HSteamListenSocket socket_id;
 
@@ -2110,3 +2113,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_NETWORKING_SOCKETS_H

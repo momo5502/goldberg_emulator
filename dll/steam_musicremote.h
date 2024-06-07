@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MUSICREMOTE_H
+#define INCLUDED_STEAM_MUSICREMOTE_H
+
 class Steam_MusicRemote : public ISteamMusicRemote
 {
 public:
@@ -65,3 +68,5 @@ public:
 	bool SetCurrentPlaylistEntry( int nID );
 	bool PlaylistDidChange();
 };
+
+#endif // INCLUDED_STEAM_MUSICREMOTE_H

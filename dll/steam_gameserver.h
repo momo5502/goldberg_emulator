@@ -16,7 +16,10 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "base.h"
- 
+
+#ifndef INCLUDED_STEAM_GAMESERVER_H
+#define INCLUDED_STEAM_GAMESERVER_H
+
 //-----------------------------------------------------------------------------
 // Purpose: Functions for authenticating users via Steam to play on a game server
 //-----------------------------------------------------------------------------
@@ -353,3 +356,5 @@ public:
     //
     void RunCallbacks();
 };
+
+#endif // INCLUDED_STEAM_GAMESERVER_H

@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_NETWORKING_MESSAGES
+#define INCLUDED_STEAM_NETWORKING_MESSAGES
+
 #define NETWORKING_MESSAGES_TIMEOUT 30.0
 
 struct Steam_Message_Connection {
@@ -444,3 +447,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_NETWORKING_MESSAGES

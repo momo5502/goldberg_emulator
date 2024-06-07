@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_GAMESEARCH_H
+#define INCLUDED_STEAM_GAMESEARCH_H
+
 class Steam_Game_Search :
 public ISteamGameSearch
 {
@@ -213,3 +216,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_GAMESEARCH_H

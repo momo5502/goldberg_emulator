@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_GAME_COORDINATOR_H
+#define INCLUDED_STEAM_GAME_COORDINATOR_H
+
 class Steam_Game_Coordinator :
 public ISteamGameCoordinator
 {
@@ -152,3 +155,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_GAME_COORDINATOR_H

@@ -19,6 +19,9 @@
 #include "local_storage.h"
 #include "../overlay_experimental/steam_overlay.h"
 
+#ifndef INCLUDED_STEAM_UTILS_H
+#define INCLUDED_STEAM_UTILS_H
+
 static std::chrono::time_point<std::chrono::steady_clock> app_initialized_time = std::chrono::steady_clock::now();
 
 
@@ -442,3 +445,5 @@ bool DismissFloatingGamepadTextInput()
 }
 
 };
+
+#endif // INCLUDED_STEAM_UTILS_H

@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MATCHMAKING_SERVERS_H
+#define INCLUDED_STEAM_MATCHMAKING_SERVERS_H
+
 #define SERVER_TIMEOUT 10.0
 #define DIRECT_IP_DELAY 0.05
 
@@ -223,3 +226,5 @@ public:
     void Callback(Common_Message *msg);
     void server_details(Gameserver *g, gameserveritem_t *server);
 };
+
+#endif // INCLUDED_STEAM_MATCHMAKING_SERVERS_H

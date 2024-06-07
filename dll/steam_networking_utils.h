@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_NETWORKING_UTILS_H
+#define INCLUDED_STEAM_NETWORKING_UTILS_H
+
 class Steam_Networking_Utils :
 public ISteamNetworkingUtils001,
 public ISteamNetworkingUtils002,
@@ -749,3 +752,5 @@ void Callback(Common_Message *msg)
 
 
 };
+
+#endif // INCLUDED_STEAM_NETWORKING_UTILS_H

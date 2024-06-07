@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MUSIC_H
+#define INCLUDED_STEAM_MUSIC_H
+
 class Steam_Music : public ISteamMusic
 {
     int playing;
@@ -41,3 +44,5 @@ public:
 	void SetVolume( float flVolume );
 	float GetVolume();
 };
+
+#endif // INCLUDED_STEAM_MUSIC_H

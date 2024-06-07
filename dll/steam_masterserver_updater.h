@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MASTERSERVER_UPDATER_H
+#define INCLUDED_STEAM_MASTERSERVER_UPDATER_H
+
 class Steam_Masterserver_Updater :
 public ISteamMasterServerUpdater
 {
@@ -300,3 +303,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_MASTERSERVER_UPDATER_H

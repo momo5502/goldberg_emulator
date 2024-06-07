@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_UGC_H
+#define INCLUDED_STEAM_UGC_H
+
 struct UGC_query {
     UGCQueryHandle_t handle;
     std::set<PublishedFileId_t> return_only;
@@ -903,3 +906,5 @@ SteamAPICall_t GetWorkshopEULAStatus()
 
 
 };
+
+#endif // INCLUDED_STEAM_UGC_H

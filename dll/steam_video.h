@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_VIDEO_H
+#define INCLUDED_STEAM_VIDEO_H
+
 class Steam_Video : public ISteamVideo
 {
 public:
@@ -32,3 +35,5 @@ public:
 	void GetOPFSettings( AppId_t unVideoAppID );
 	bool GetOPFStringForApp( AppId_t unVideoAppID, char *pchBuffer, int32 *pnBufferSize );
 };
+
+#endif // INCLUDED_STEAM_VIDEO_H

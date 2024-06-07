@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_NETWORKING_SOCKETS_SERIALIZED_H
+#define INCLUDED_STEAM_NETWORKING_SOCKETS_SERIALIZED_H
+
 class Steam_Networking_Sockets_Serialized :
 public ISteamNetworkingSocketsSerialized002,
 public ISteamNetworkingSocketsSerialized003,
@@ -154,3 +157,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_NETWORKING_SOCKETS_SERIALIZED_H
