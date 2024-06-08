@@ -127,6 +127,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     }
     SetEvent(SharedMemFileLock);
 
+	// Create env.
+	SetEnvironmentVariableW(L"SteamAppPath", ExeRunDir);
+
 	WCHAR CommandLine[8192];
 	_snwprintf(CommandLine, _countof(CommandLine), L"\"%ls\" %ls", ExeFile, ExeCommandLine);
 	if (!ExeFile[0] || !CreateProcessW(ExeFile, CommandLine, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ExeRunDir, &info, &processInfo))
