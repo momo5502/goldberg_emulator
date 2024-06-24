@@ -86,6 +86,7 @@
 
     #ifdef EMU_EXPERIMENTAL_BUILD
         #include <winhttp.h>
+        #include <tlhelp32.h>
 
         #include "../detours/detours.h"
     #endif
