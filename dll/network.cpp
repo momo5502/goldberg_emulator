@@ -524,6 +524,7 @@ std::set<IP_PORT> Networking::resolve_ip(std::string dns)
                 ips.insert(addr);
             }
         }
+        freeaddrinfo(result);
     }
 
     return ips;
