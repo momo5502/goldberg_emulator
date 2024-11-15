@@ -65,7 +65,7 @@ ScreenshotHandle Steam_Screenshots::AddScreenshotToLibrary( const char *pchFilen
     if (pchFilename == nullptr)
         return INVALID_SCREENSHOT_HANDLE;
 
-    std::vector<image_pixel_t> pixels(std::move(local_storage->load_image(pchFilename)));
+    std::vector<image_pixel_t> pixels(std::move(local_storage->load_image(pchFilename, NULL, NULL)));
     if (pixels.size() != size_t(nWidth) * size_t(nHeight))
         return INVALID_SCREENSHOT_HANDLE;
 

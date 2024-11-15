@@ -73,6 +73,8 @@ class Settings {
 
     bool unlockAllDLCs;
     bool offline;
+    bool showAchievementDescOnUnlock;
+    bool showAchievementHiddenUnearned;
     std::vector<struct DLC_entry> DLCs;
     std::vector<struct Mod_entry> mods;
     std::map<AppId_t, std::string> app_paths;
@@ -170,6 +172,12 @@ public:
 
     //warn people who use local save
     bool warn_local_save = false;
+
+    //achievements
+    bool get_show_achievement_desc_on_unlock() { return showAchievementDescOnUnlock; }
+    void set_show_achievement_desc_on_unlock(bool set) { this->showAchievementDescOnUnlock = set; }
+    bool get_show_achievement_hidden_unearned() { return showAchievementHiddenUnearned; }
+    void set_show_achievement_hidden_unearned(bool set) { this->showAchievementHiddenUnearned = set; }
 };
 
 #endif
