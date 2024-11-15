@@ -68,6 +68,7 @@ struct Notification
     std::chrono::seconds start_time;
     std::string message;
     std::pair<const Friend, friend_window_state>* frd;
+    std::string ach_name;
 };
 
 struct Overlay_Achievement
@@ -78,6 +79,10 @@ struct Overlay_Achievement
     bool hidden;
     bool achieved;
     uint32 unlock_time;
+    uint8 * raw_image;
+    uint32 raw_image_width;
+    uint32 raw_image_height;
+    std::weak_ptr<uint64_t> image_resource;
 };
 
 #ifdef EMU_OVERLAY
@@ -104,8 +109,8 @@ class Steam_Overlay
     bool show_achievements, show_settings;
     void *fonts_atlas;
 
-    bool disable_forced, local_save, warning_forced;
-    uint32_t appid;
+    bool disable_forced, local_save, warning_forced, show_achievement_desc_on_unlock, show_achievement_hidden_unearned;
+    uint32_t appid, total_achievement_count, earned_achievement_count;
 
     char username_text[256];
     std::atomic_bool save_settings;
@@ -149,6 +154,12 @@ class Steam_Overlay
     void BuildFriendWindow(Friend const& frd, friend_window_state &state);
     // Notifications like achievements, chat and invitations
     void BuildNotifications(int width, int height);
+
+    void LoadAchievementImage(Overlay_Achievement & ach);
+    void CreateAchievementImageResource(Overlay_Achievement & ach);
+    void DestroyAchievementImageResource(Overlay_Achievement & ach);
+    void DestroyAchievementImageResources();
+
 public:
     Steam_Overlay(Settings* settings, SteamCallResults* callback_results, SteamCallBacks* callbacks, RunEveryRunCB* run_every_runcb, Networking *network);
 

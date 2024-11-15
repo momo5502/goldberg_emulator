@@ -100,6 +100,85 @@ int find_free_notification_id(std::vector<Notification> const& notifications)
 
 #include "notification.h"
 
+void Steam_Overlay::LoadAchievementImage(Overlay_Achievement & ach)
+{
+    PRINT_DEBUG("LoadAchievementImage() %s.\n", ach.name.c_str());
+
+    // Image load.
+    Steam_Utils* steamUtils = get_steam_client()->steam_utils;
+    Steam_User_Stats* steamUserStats = get_steam_client()->steam_user_stats;
+    int32 image_handle = steamUserStats->GetAchievementIcon(ach.name.c_str());
+    if (image_handle != 0) {
+        uint32 width = 0;
+        uint32 height = 0;
+        if ((steamUtils->GetImageSize(image_handle, &width, &height) == true) &&
+            (width > 0) && (height > 0)) {
+
+            PRINT_DEBUG("LoadAchievementImage() %d %d %d.\n", image_handle, width, height);
+
+            if (ach.raw_image != NULL) {
+                delete ach.raw_image;
+                ach.raw_image = NULL;
+                ach.raw_image_width = 0;
+                ach.raw_image_height = 0;
+            }
+            DestroyAchievementImageResource(ach);
+
+            uint8 * raw_image = new uint8[(width * height * sizeof(uint32))];
+            if ((raw_image != NULL) &&
+                (steamUtils->GetImageRGBA(image_handle,
+                                          raw_image,
+                                          (width * height * sizeof(uint32))) == true)) {
+                                              PRINT_DEBUG("LoadAchievementImage() %d -> %p.\n", image_handle, raw_image);
+                ach.raw_image = raw_image;
+                ach.raw_image_width = width;
+                ach.raw_image_height = height;
+            } else {
+                delete ach.raw_image;
+                PRINT_DEBUG("Image for achievement %s could not get pixel data.\n", ach.name.c_str());
+            }
+        } else {
+            PRINT_DEBUG("Image for achievement %s has an invalid size.\n", ach.name.c_str());
+        }
+    } else {
+        PRINT_DEBUG("Image for achievement %s is not loaded.\n", ach.name.c_str());
+    }
+}
+
+void Steam_Overlay::CreateAchievementImageResource(Overlay_Achievement & ach)
+{
+    PRINT_DEBUG("CreateAchievementImageResource() %s. %d x %d -> %p\n", ach.name.c_str(), ach.raw_image_width, ach.raw_image_height, ach.raw_image);
+
+    if (_renderer) {
+        if (ach.raw_image != NULL && ach.raw_image_width > 0 && ach.raw_image_height > 0 && ach.image_resource.expired() == true) {
+            std::weak_ptr<uint64_t> test;
+            test = _renderer->CreateImageResource(ach.raw_image,
+                                                  ach.raw_image_width,
+                                                  ach.raw_image_height);
+            ach.image_resource = test;
+            std::shared_ptr<uint64_t> test2;
+            test2 = test.lock();
+            if (!test2) {
+                PRINT_DEBUG("CreateAchievementImageResource() Unable to create resource for %s.\n", ach.name.c_str());
+            } else {
+                PRINT_DEBUG("CreateAchievementImageResource() created resource for %s -> %PRIu64.\n", ach.name.c_str(), *test2);
+            }
+
+        } else {
+            PRINT_DEBUG("CreateAchievementImageResource() invalid raw data for %s.\n", ach.name.c_str());
+        }
+    }
+}
+
+void Steam_Overlay::DestroyAchievementImageResource(Overlay_Achievement & ach)
+{
+    PRINT_DEBUG("DestroyAchievementImageResource() %s.\n", ach.name.c_str());
+
+    if (_renderer && ach.image_resource.expired() == false) {
+        _renderer->ReleaseImageResource(ach.image_resource);
+    }
+}
+
 void Steam_Overlay::steam_overlay_run_every_runcb(void* object)
 {
     Steam_Overlay* _this = reinterpret_cast<Steam_Overlay*>(object);
@@ -129,9 +208,13 @@ Steam_Overlay::Steam_Overlay(Settings* settings, SteamCallResults* callback_resu
     show_achievements(false),
     show_settings(false),
     _renderer(nullptr),
-    fonts_atlas(nullptr)
+    fonts_atlas(nullptr),
+    earned_achievement_count(0)
 {
     strncpy(username_text, settings->get_local_name(), sizeof(username_text));
+
+    show_achievement_desc_on_unlock = settings->get_show_achievement_desc_on_unlock();
+    show_achievement_hidden_unearned = settings->get_show_achievement_hidden_unearned();
 
     if (settings->warn_forced) {
         this->disable_forced = true;
@@ -167,6 +250,17 @@ Steam_Overlay::Steam_Overlay(Settings* settings, SteamCallResults* callback_resu
 Steam_Overlay::~Steam_Overlay()
 {
     run_every_runcb->remove(&Steam_Overlay::steam_overlay_run_every_runcb, this);
+    if (achievements.size()) {
+        for (auto & x : achievements) {
+            if (x.raw_image != NULL) {
+                delete x.raw_image;
+                x.raw_image = NULL;
+                x.raw_image_width = 0;
+                x.raw_image_height = 0;
+            }
+            DestroyAchievementImageResource(x);
+        }
+    }
 }
 
 bool Steam_Overlay::Ready() const
@@ -422,8 +516,28 @@ void Steam_Overlay::AddAchievementNotification(nlohmann::json const& ach)
         Notification notif;
         notif.id = id;
         notif.type = notification_type_achievement;
-        // Load achievement image
-        notif.message = ach["displayName"].get<std::string>() + "\n" + ach["description"].get<std::string>();
+        // Achievement image
+        if (achievements.size() > 0) {
+            for (auto & x : achievements) {
+                if (x.name == ach["name"].get<std::string>()) {
+                    // Reload the image due to the pop.
+                    LoadAchievementImage(x);
+                    DestroyAchievementImageResource(x);
+                    // Cannot call CreateAchievementImageResource(x) here. OpenGL displays bad texture.
+                    notif.ach_name = x.name;
+                }
+            }
+        }
+        // Achievement count.
+        if (total_achievement_count > earned_achievement_count) {
+            earned_achievement_count++;
+        }
+        notif.message = "Achievement Unlocked!\n";
+        if (show_achievement_desc_on_unlock) {
+            notif.message += ach["displayName"].get<std::string>() + "\n" + ach["description"].get<std::string>();
+        } else {
+            notif.message += "\n" + ach["displayName"].get<std::string>();
+        }
         notif.start_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
         notifications.emplace_back(notif);
         have_notifications = true;
@@ -636,46 +750,85 @@ void Steam_Overlay::BuildNotifications(int width, int height)
 
     std::queue<Friend> friend_actions_temp;
 
+    ImVec2 notification_rez(((Notification::width >= 1.0f) ? (width / Notification::width) : (width * Notification::width)),
+                            ((Notification::height >= 1.0f) ? (height / Notification::height) : (height * Notification::height))); // calc notification screen size.
+
     {
         std::lock_guard<std::recursive_mutex> lock(notifications_mutex);
 
         for (auto it = notifications.begin(); it != notifications.end(); ++it, ++i)
         {
             auto elapsed_notif = now - it->start_time;
-
+            float alpha = 0;
+            ImGuiStyle currentStyle = ImGui::GetStyle();
             if ( elapsed_notif < Notification::fade_in)
             {
-                float alpha = Notification::max_alpha * (elapsed_notif.count() / static_cast<float>(Notification::fade_in.count()));
+                alpha = Notification::max_alpha * (elapsed_notif.count() / static_cast<float>(Notification::fade_in.count()));
                 ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, alpha));
                 ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(Notification::r, Notification::g, Notification::b, alpha));
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255, 255, 255, alpha*2));
             }
             else if ( elapsed_notif > Notification::fade_out_start)
             {
-                float alpha = Notification::max_alpha * ((Notification::show_time - elapsed_notif).count() / static_cast<float>(Notification::fade_out.count()));
+                alpha = Notification::max_alpha * ((Notification::show_time - elapsed_notif).count() / static_cast<float>(Notification::fade_out.count()));
                 ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, alpha));
                 ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(Notification::r, Notification::g, Notification::b, alpha));
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255, 255, 255, alpha*2));
             }
             else
             {
+                alpha = Notification::max_alpha;
                 ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, Notification::max_alpha));
                 ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(Notification::r, Notification::g, Notification::b, Notification::max_alpha));
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255, 255, 255, Notification::max_alpha*2));
             }
-            
+
             ImGui::SetNextWindowPos(ImVec2((float)width - width * Notification::width, Notification::height * font_size * i ));
             ImGui::SetNextWindowSize(ImVec2( width * Notification::width, Notification::height * font_size ));
             ImGui::Begin(std::to_string(it->id).c_str(), nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | 
                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoDecoration);
 
+            // Notification image.
+            ImVec4 image_color_multipler(1, 1, 1, (alpha*2)); // fade in / out.
+            ImVec2 image_offset(((notification_rez.x * 0.04f) + currentStyle.FramePadding.x), ((notification_rez.y * 0.04f) + currentStyle.FramePadding.y)); // calc border.
+            ImVec2 image_max_resolution((notification_rez.x - image_offset.x), (notification_rez.y - image_offset.y)); // calc total space for image.
+            if (image_max_resolution.x > image_max_resolution.y) { // fix image aspect ratio. (square)
+                image_max_resolution.x = image_max_resolution.x - (image_max_resolution.x - image_max_resolution.y);
+            } else {
+                image_max_resolution.y = image_max_resolution.y - (image_max_resolution.y - image_max_resolution.x);
+            }
+            ImVec2 text_offset(image_offset.x, image_offset.y);
+            ImGui::SetCursorPos(image_offset);
+
             switch (it->type)
             {
                 case notification_type_achievement:
+                    for (auto &a : achievements) {
+                        if (a.name == it->ach_name) {
+                            CreateAchievementImageResource(a);
+                            if ((a.image_resource.expired() == false) &&
+                                (a.raw_image_width > 0) &&
+                                (a.raw_image_height > 0)) {
+                                ImVec2 image_scale(image_max_resolution.x * 0.4f,
+                                                    image_max_resolution.y * 0.4f);
+
+                                // Fix text offset.
+                                text_offset.x = image_offset.x + currentStyle.ItemSpacing.x + image_scale.x;
+
+                                std::shared_ptr<uint64_t> s_ptr = a.image_resource.lock();
+                                ImGui::Image((ImTextureID)(intptr_t)*s_ptr, image_scale, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), image_color_multipler);
+                            }
+                            break;
+                        }
+                    }
+                    ImGui::SetCursorPos(text_offset);
+                    ImGui::PushTextWrapPos(0.0f);
                     ImGui::TextWrapped("%s", it->message.c_str());
+                    ImGui::PopTextWrapPos();
                     break;
                 case notification_type_invite:
                     {
+                        ImGui::SetCursorPos(text_offset);
                         ImGui::TextWrapped("%s", it->message.c_str());
                         if (ImGui::Button("Join"))
                         {
@@ -686,6 +839,7 @@ void Steam_Overlay::BuildNotifications(int width, int height)
                     }
                     break;
                 case notification_type_message:
+                    ImGui::SetCursorPos(text_offset);
                     ImGui::TextWrapped("%s", it->message.c_str()); break;
             }
 
@@ -771,6 +925,17 @@ void Steam_Overlay::CreateFonts()
     reset_LastError();
 }
 
+void Steam_Overlay::DestroyAchievementImageResources()
+{
+    for (auto & x : achievements) {
+        if (x.image_resource.expired()) {
+            DestroyAchievementImageResource(x);
+        }
+    }
+
+    return;
+}
+
 // Try to make this function as short as possible or it might affect game's fps.
 void Steam_Overlay::OverlayProc()
 {
@@ -808,6 +973,10 @@ void Steam_Overlay::OverlayProc()
             ImGui::SameLine();
 
             ImGui::LabelText("##label", "Renderer: %s", (_renderer == nullptr ? "Unknown" : _renderer->GetLibraryName().c_str()));
+
+            ImGui::Text("Achievements earned: %d / %d", earned_achievement_count, total_achievement_count);
+            ImGui::SameLine();
+            ImGui::ProgressBar((earned_achievement_count / total_achievement_count), ImVec2((io.DisplaySize.x * 0.20f),0));
 
             ImGui::Spacing();
             if (ImGui::Button("Show Achievements")) {
@@ -854,28 +1023,66 @@ void Steam_Overlay::OverlayProc()
                 if (ImGui::Begin("Achievement Window", &show)) {
                     ImGui::Text("List of achievements");
                     ImGui::BeginChild("Achievements");
+                    ImGuiStyle currentStyle = ImGui::GetStyle();
+                    float window_x_offset = (ImGui::GetWindowWidth() > currentStyle.ScrollbarSize) ? (ImGui::GetWindowWidth() - currentStyle.ScrollbarSize) : 0;
                     for (auto & x : achievements) {
                         bool achieved = x.achieved;
                         bool hidden = x.hidden && !achieved;
 
-                        ImGui::Separator();
-                        ImGui::Text("%s", x.title.c_str());
-                        if (hidden) {
-                            ImGui::Text("hidden achievement");
-                        } else {
-                            ImGui::TextWrapped("%s", x.description.c_str());
-                        }
+                        if (!hidden || show_achievement_hidden_unearned) {
 
-                        if (achieved) {
-                            char buffer[80] = {};
-                            time_t unlock_time = (time_t)x.unlock_time;
-                            std::strftime(buffer, 80, "%Y-%m-%d at %H:%M:%S", std::localtime(&unlock_time));
+                            if (x.raw_image == NULL) {
+                                LoadAchievementImage(x);
+                            }
 
-                            ImGui::TextColored(ImVec4(0, 255, 0, 255), "achieved on %s", buffer);
-                        } else {
-                            ImGui::TextColored(ImVec4(255, 0, 0, 255), "not achieved");
+                            if (x.image_resource.expired() == true) {
+                                CreateAchievementImageResource(x);
+                            }
+
+                            ImGui::Separator();
+
+                            // Anchor the image to the right side of the list.
+                            ImVec2 target = ImGui::GetCursorPos();
+                            target.x = window_x_offset;
+                            if (target.x > (x.raw_image_width * 0.4f)) {
+                                target.x = target.x - (x.raw_image_width * 0.4f);
+                            } else {
+                                target.x = 0;
+                            }
+
+                            ImGui::PushTextWrapPos(target.x);
+                            ImGui::Text("%s", x.title.c_str());
+                            if (hidden) {
+                                ImGui::Text("Hidden Achievement");
+                            } else {
+                                ImGui::Text("%s", x.description.c_str());
+                            }
+                            ImGui::PopTextWrapPos();
+
+                            if (achieved) {
+                                char buffer[80] = {};
+                                time_t unlock_time = (time_t)x.unlock_time;
+                                std::strftime(buffer, 80, "%Y-%m-%d at %H:%M:%S", std::localtime(&unlock_time));
+
+                                ImGui::TextColored(ImVec4(0, 255, 0, 255), "achieved on %s", buffer);
+                            } else {
+                                ImGui::TextColored(ImVec4(255, 0, 0, 255), "not achieved");
+                            }
+
+                            // Set cursor for image output.
+                            if (target.x != 0) {
+                                ImGui::SetCursorPos(target);
+                            }
+
+                            if ((x.image_resource.expired() == false) &&
+                                (x.raw_image_width > 0) &&
+                                (x.raw_image_height > 0)) {
+                                std::shared_ptr<uint64_t> s_ptr = x.image_resource.lock();
+                                ImGui::Image((ImTextureID)(intptr_t)*s_ptr, ImVec2(x.raw_image_width * 0.4f, x.raw_image_height * 0.4f));
+                            }
+
+                            ImGui::Separator();
                         }
-                        ImGui::Separator();
                     }
                     ImGui::EndChild();
                 }
@@ -902,6 +1109,11 @@ void Steam_Overlay::OverlayProc()
                     }
 
                     ImGui::Text("Selected Language: %s", valid_languages[current_language]);
+
+                    ImGui::Separator();
+
+                    ImGui::Checkbox("Show achievement descriptions on unlock", &show_achievement_desc_on_unlock);
+                    ImGui::Checkbox("Show unearned hidden achievements", &show_achievement_hidden_unearned);
 
                     ImGui::Separator();
 
@@ -1004,15 +1216,16 @@ void Steam_Overlay::RunCallbacks()
 {
     if (!achievements.size()) {
         Steam_User_Stats* steamUserStats = get_steam_client()->steam_user_stats;
-        uint32 achievements_num = steamUserStats->GetNumAchievements();
-        if (achievements_num) {
+        total_achievement_count = steamUserStats->GetNumAchievements();
+        if (total_achievement_count) {
             PRINT_DEBUG("POPULATE OVERLAY ACHIEVEMENTS\n");
-            for (unsigned i = 0; i < achievements_num; ++i) {
+            for (unsigned i = 0; i < total_achievement_count; ++i) {
                 Overlay_Achievement ach;
                 ach.name = steamUserStats->GetAchievementName(i);
                 ach.title = steamUserStats->GetAchievementDisplayAttribute(ach.name.c_str(), "name");
                 ach.description = steamUserStats->GetAchievementDisplayAttribute(ach.name.c_str(), "desc");
                 const char *hidden = steamUserStats->GetAchievementDisplayAttribute(ach.name.c_str(), "hidden");
+
                 if (strlen(hidden) && hidden[0] == '1') {
                     ach.hidden = true;
                 } else {
@@ -1024,10 +1237,18 @@ void Steam_Overlay::RunCallbacks()
                 if (steamUserStats->GetAchievementAndUnlockTime(ach.name.c_str(), &achieved, &unlock_time)) {
                     ach.achieved = achieved;
                     ach.unlock_time = unlock_time;
+                    if ((achieved == true) && (total_achievement_count > earned_achievement_count)) {
+                        earned_achievement_count++;
+                    }
                 } else {
                     ach.achieved = false;
                     ach.unlock_time = 0;
                 }
+
+                ach.raw_image = nullptr;
+                ach.raw_image_width = 0;
+                ach.raw_image_height = 0;
+                LoadAchievementImage(ach);
 
                 achievements.push_back(ach);
             }
@@ -1062,7 +1283,7 @@ void Steam_Overlay::RunCallbacks()
         data.m_bUserInitiated = true;
         data.m_nAppID = settings->get_local_game_id().AppID();
         callbacks->addCBResult(data.k_iCallback, &data, sizeof(data));
-
+        DestroyAchievementImageResources(); // Don't recreate them here. OpenGL won't display them if we do.
         overlay_state_changed = false;
     }
 
@@ -1071,11 +1292,15 @@ void Steam_Overlay::RunCallbacks()
 
     if (save_settings) {
         char *language_text = valid_languages[current_language];
-        save_global_settings(get_steam_client()->local_storage, username_text, language_text);
         get_steam_client()->settings_client->set_local_name(username_text);
-        get_steam_client()->settings_server->set_local_name(username_text);
         get_steam_client()->settings_client->set_language(language_text);
+        get_steam_client()->settings_client->set_show_achievement_desc_on_unlock(show_achievement_desc_on_unlock);
+        get_steam_client()->settings_client->set_show_achievement_hidden_unearned(show_achievement_hidden_unearned);
+        get_steam_client()->settings_server->set_local_name(username_text);
         get_steam_client()->settings_server->set_language(language_text);
+        get_steam_client()->settings_server->set_show_achievement_desc_on_unlock(show_achievement_desc_on_unlock);
+        get_steam_client()->settings_server->set_show_achievement_hidden_unearned(show_achievement_hidden_unearned);
+        save_global_settings(get_steam_client()->local_storage, get_steam_client()->settings_client);
         steamFriends->resend_friend_data();
         save_settings = false;
     }

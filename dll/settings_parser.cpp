@@ -334,9 +334,24 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     bool disable_networking = false;
     bool disable_overlay = false;
     bool disable_lobby_creation = false;
+    bool enable_achievement_desc_on_unlock = false;
+    bool enable_displaying_hidden_achievements = false;
     int build_id = 10;
 
     bool warn_forced = false;
+
+    {
+        std::string steam_settings_path = local_storage->get_global_settings_path();
+
+        std::vector<std::string> paths = local_storage->get_filenames_path(steam_settings_path);
+        for (auto & p: paths) {
+            if (p == "enable_achievement_desc_on_unlock.txt") {
+                enable_achievement_desc_on_unlock = true;
+            } else if (p == "enable_displaying_hidden_achievements.txt") {
+                enable_displaying_hidden_achievements = true;
+            }
+        }
+    }
 
     {
         std::string steam_settings_path = Local_Storage::get_game_settings_path();
@@ -352,6 +367,10 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
                 disable_overlay = true;
             } else if (p == "disable_lobby_creation.txt") {
                 disable_lobby_creation = true;
+            } else if (p == "enable_achievement_desc_on_unlock.txt") {
+                enable_achievement_desc_on_unlock = true;
+            } else if (p == "enable_displaying_hidden_achievements.txt") {
+                enable_displaying_hidden_achievements = true;
             } else if (p == "force_language.txt") {
                 int len = Local_Storage::get_file_data(steam_settings_path + "force_language.txt", language, sizeof(language) - 1);
                 if (len > 0) {
@@ -410,6 +429,10 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->warn_local_save = local_save;
     settings_client->supported_languages = supported_languages;
     settings_server->supported_languages = supported_languages;
+    settings_client->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
+    settings_server->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
+    settings_client->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
+    settings_server->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
 
     {
         std::string dlc_config_path = Local_Storage::get_game_settings_path() + "DLC.txt";
@@ -666,8 +689,31 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     return appid;
 }
 
-void save_global_settings(Local_Storage *local_storage, char *name, char *language)
+void save_global_settings(Local_Storage *local_storage, Settings * client_settings)
 {
-    local_storage->store_data_settings("account_name.txt", name, strlen(name));
-    local_storage->store_data_settings("language.txt", language, strlen(language));
+    if ((local_storage != nullptr) && (client_settings != nullptr)) {
+        std::string name = client_settings->get_local_name();
+        std::string language = client_settings->get_language();
+
+        local_storage->store_data_settings("account_name.txt", (char*)name.c_str(), name.length());
+        local_storage->store_data_settings("language.txt", (char*)language.c_str(), language.length());
+        if (client_settings->get_show_achievement_desc_on_unlock()) {
+            if (local_storage->data_settings_exists("enable_achievement_desc_on_unlock.txt") != true) {
+                local_storage->store_data_settings("enable_achievement_desc_on_unlock.txt", " ", sizeof(" "));
+            }
+        } else {
+            if (local_storage->data_settings_exists("enable_achievement_desc_on_unlock.txt") == true) {
+                local_storage->delete_data_settings("enable_achievement_desc_on_unlock.txt");
+            }
+        }
+        if (client_settings->get_show_achievement_hidden_unearned()) {
+            if (local_storage->data_settings_exists("enable_displaying_hidden_achievements.txt") != true) {
+                local_storage->store_data_settings("enable_displaying_hidden_achievements.txt", " ", sizeof(" "));
+            }
+        } else {
+            if (local_storage->data_settings_exists("enable_displaying_hidden_achievements.txt") == true) {
+                local_storage->delete_data_settings("enable_displaying_hidden_achievements.txt");
+            }
+        }
+    }
 }
