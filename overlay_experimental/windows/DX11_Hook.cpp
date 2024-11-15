@@ -207,6 +207,7 @@ DX11_Hook::DX11_Hook():
     _Hooked(false),
     _WindowsHooked(false),
     pContext(nullptr),
+    pDevice(nullptr),
     mainRenderTargetView(nullptr),
     Present(nullptr),
     ResizeBuffers(nullptr),
@@ -263,6 +264,11 @@ void DX11_Hook::LoadFunctions(
 
 std::weak_ptr<uint64_t> DX11_Hook::CreateImageResource(const void* image_data, uint32_t width, uint32_t height)
 {
+    if (pDevice == nullptr) {
+        SPDLOG_INFO("DX11 CreateImageResource %p pDevice is NULL.\n", image_data);
+        return std::shared_ptr<uint64_t>();
+    }
+
     ID3D11ShaderResourceView** resource = new ID3D11ShaderResourceView*(nullptr);
 
     // Create texture
@@ -273,6 +279,7 @@ std::weak_ptr<uint64_t> DX11_Hook::CreateImageResource(const void* image_data, u
     desc.ArraySize = 1;
     desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
     desc.Usage = D3D11_USAGE_DEFAULT;
     desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     desc.CPUAccessFlags = 0;
@@ -282,6 +289,7 @@ std::weak_ptr<uint64_t> DX11_Hook::CreateImageResource(const void* image_data, u
     subResource.pSysMem = image_data;
     subResource.SysMemPitch = desc.Width * 4;
     subResource.SysMemSlicePitch = 0;
+
     pDevice->CreateTexture2D(&desc, &subResource, &pTexture);
 
     if (pTexture != nullptr)
