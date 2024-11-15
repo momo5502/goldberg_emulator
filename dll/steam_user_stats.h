@@ -85,6 +85,8 @@ private:
     nlohmann::json defined_achievements;
     nlohmann::json user_achievements;
     std::vector<std::string> sorted_achievement_names;
+    std::map<std::string, int32> achievement_image_data_normal;
+    std::map<std::string, int32> achievement_image_data_gray;
     std::map<std::string, int32> stats_cache_int;
     std::map<std::string, float> stats_cache_float;
 
@@ -112,10 +114,74 @@ nlohmann::detail::iter_impl<nlohmann::json> defined_achievements_find(std::strin
         });
 }
 
+int32 achievement_image_data_normal_find(std::string key) {
+    for (auto & it : achievement_image_data_normal) {
+        try {
+            if (it.first == key) {
+                return it.second;
+            }
+        } catch (...) {}
+    }
+    return 0;
+}
+
+int32 achievement_image_data_gray_find(std::string key) {
+    for (auto & it : achievement_image_data_gray) {
+        try {
+            if (it.first == key) {
+                return it.second;
+            }
+        } catch (...) {}
+    }
+    return 0;
+}
+
 void load_achievements_db()
 {
+    uint64 count = 0;
     std::string file_path = Local_Storage::get_game_settings_path() + achievements_user_file;
     local_storage->load_json(file_path, defined_achievements);
+    for (auto & it : defined_achievements) {
+        try {
+            std::string name = static_cast<std::string const&>(it["name"]);
+            if (name.length() > 0) {
+                std::string normal = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(it["icon"]);
+                std::string gray = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(it["icongray"]);
+                if (normal.length() > 0 && gray.length() > 0) {
+                    uint32 normal_height = 0;
+                    uint32 normal_width = 0;
+                    uint32 gray_height = 0;
+                    uint32 gray_width = 0;
+                    std::vector<image_pixel_t> normal_pixels(local_storage->load_image(normal, &normal_width, &normal_height));
+                    std::vector<image_pixel_t> gray_pixels(local_storage->load_image(gray, &gray_width, &gray_height));
+                    if (normal_width > 0 && normal_height > 0 &&
+                        gray_width > 0 && gray_height > 0) {
+                        std::string normalStr;
+                        std::string grayStr;
+                        normalStr.reserve(sizeof(uint32_t) * normal_width * normal_height);
+                        grayStr.reserve(sizeof(uint32_t) * gray_width * gray_height);
+                        for (auto & pix : normal_pixels) {
+                            normalStr += pix.channels.r;
+                            normalStr += pix.channels.g;
+                            normalStr += pix.channels.b;
+                            normalStr += pix.channels.a;
+                        }
+                        for (auto & pix : gray_pixels) {
+                            grayStr += pix.channels.r;
+                            grayStr += pix.channels.g;
+                            grayStr += pix.channels.b;
+                            grayStr += pix.channels.a;
+                        }
+                        achievement_image_data_normal[name] = settings->add_image(normalStr, normal_width, normal_height);
+                        achievement_image_data_gray[name] = settings->add_image(grayStr, gray_width, gray_height);
+                        count++;
+                    }
+                }
+            }
+        } catch (...) {}
+    }
+
+    PRINT_DEBUG("loaded %llu achievement images.\n", count);
 }
 
 void load_achievements()
@@ -590,10 +656,18 @@ bool StoreStats()
 int GetAchievementIcon( const char *pchName )
 {
     PRINT_DEBUG("GetAchievementIcon\n");
-    if (pchName == nullptr) return 0;
+    int ret = 0;
+    if (pchName == nullptr) return ret;
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
 
-    return 0;
+    bool achieved = false;
+    if ((GetAchievementAndUnlockTime(pchName, &achieved, NULL) == true) && (achieved == true)) {
+        ret = achievement_image_data_normal_find(pchName);
+    } else {
+        ret = achievement_image_data_gray_find(pchName);
+    }
+
+    return ret;
 }
 
 
