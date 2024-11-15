@@ -1401,7 +1401,7 @@ public:
             }
             stop_detection_cv.notify_all();
 
-            SPDLOG_TRACE("Renderer detection done {}.", (void*)renderer_hook);
+            SPDLOG_TRACE("Renderer detection done %p.", (void*)renderer_hook);
 
             return renderer_hook;
         });
