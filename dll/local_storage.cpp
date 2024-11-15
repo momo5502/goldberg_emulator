@@ -156,7 +156,7 @@ std::vector<std::string> Local_Storage::get_filenames_path(std::string path)
     return std::vector<std::string>();
 }
 
-std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path)
+std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height)
 {
     return std::vector<image_pixel_t>();
 }
@@ -612,6 +612,14 @@ bool Local_Storage::file_exists(std::string folder, std::string file)
     return file_exists_(full_path);
 }
 
+bool Local_Storage::data_settings_exists(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return file_exists_(full_path);
+}
+
 unsigned int Local_Storage::file_size(std::string folder, std::string file)
 {
     file = sanitize_file_name(file);
@@ -623,6 +631,23 @@ unsigned int Local_Storage::file_size(std::string folder, std::string file)
     return file_size_(full_path);
 }
 
+unsigned int Local_Storage::data_settings_size(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return file_size_(full_path);
+}
+
+bool _internal_file_delete(std::string & full_path)
+{
+#if defined(STEAM_WIN32)
+    return _wremove(utf8_decode(full_path).c_str()) == 0;
+#else
+    return remove(full_path.c_str()) == 0;
+#endif
+}
+
 bool Local_Storage::file_delete(std::string folder, std::string file)
 {
     file = sanitize_file_name(file);
@@ -631,11 +656,15 @@ bool Local_Storage::file_delete(std::string folder, std::string file)
     }
 
     std::string full_path = save_directory + appid + folder + file;
-#if defined(STEAM_WIN32)
-    return _wremove(utf8_decode(full_path).c_str()) == 0;
-#else
-    return remove(full_path.c_str()) == 0;
-#endif
+    return _internal_file_delete(full_path);
+}
+
+bool Local_Storage::delete_data_settings(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return _internal_file_delete(full_path);
 }
 
 uint64_t Local_Storage::file_timestamp(std::string folder, std::string file)
@@ -766,10 +795,11 @@ bool Local_Storage::write_json_file(std::string folder, std::string const&file, 
     return false;
 }
 
-std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path)
+std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height)
 {
     std::vector<image_pixel_t> res;
-    int width, height;
+    int32_t width = 0;
+    int32_t height = 0;
     image_pixel_t* img = (image_pixel_t*)stbi_load(image_path.c_str(), &width, &height, nullptr, 4);
     if (img != nullptr)
     {
@@ -777,6 +807,20 @@ std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_pa
         std::copy(img, img + width * height, res.begin());
 
         stbi_image_free(img);
+    }
+    if (out_width != nullptr) {
+        if (width > 0) {
+            *out_width = static_cast<uint32_t>(width);
+        } else {
+            *out_width = 0;
+        }
+    }
+    if (out_height != nullptr) {
+        if (height > 0) {
+            *out_height = static_cast<uint32_t>(height);
+        } else {
+            *out_height = 0;
+        }
     }
 
     reset_LastError();
