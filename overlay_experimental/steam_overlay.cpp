@@ -863,6 +863,221 @@ void Steam_Overlay::BuildNotifications(int width, int height)
     }
 }
 
+#if defined(__WINDOWS__)
+struct cb_font_str
+{
+    float font_size;
+    ImFontConfig fontcfg;
+    ImFontAtlas * atlas;
+    ImFont * defaultFont;
+    HDC hDevice;
+    int foundBits;
+};
+
+static cb_font_str CBSTR;
+
+DWORD LoadWindowsFontFromMem_GetSize_Helper(const LOGFONT *lf, DWORD * type) {
+    DWORD ret = 0;
+
+    if (lf != NULL && type != NULL) {
+        ret = GetFontData(CBSTR.hDevice, 0x66637474, 0, NULL, 0);
+        if (ret != GDI_ERROR && ret > 4) {
+            *type = 0x66637474;
+        } else {
+            ret = GetFontData(CBSTR.hDevice, 0, 0, NULL, 0);
+            if (ret != GDI_ERROR && ret > 4) {
+                *type = 0x0;
+            } else {
+                *type = ~((DWORD)0);
+            }
+        }
+        PRINT_DEBUG("%s %s %d 0x%x\n", "LoadWindowsFontFromMem_GetSize_Helper Result for font", lf->lfFaceName, ret, *type);
+    }
+
+    return ret;
+}
+
+int LoadWindowsFontFromMem(const LOGFONT *lf)
+{
+    int ret = 0;
+    HFONT hFont = NULL;
+    HGDIOBJ oldFont = NULL;
+
+    if (lf != NULL) {
+        hFont = CreateFontIndirect(lf);
+        if (hFont != NULL) {
+            oldFont = SelectObject(CBSTR.hDevice, hFont);
+            uint8_t metsize = GetOutlineTextMetrics(CBSTR.hDevice, 0, NULL);
+            if (metsize > 0) {
+                OUTLINETEXTMETRIC * metric = (OUTLINETEXTMETRIC*)calloc(metsize, 1);
+                if (metric != NULL) {
+                    if (GetOutlineTextMetrics(CBSTR.hDevice, metsize, metric) != 0) {
+                        if ((metric->otmfsType & 0x1) == 0) {
+                            DWORD type = 0;
+                            DWORD fontDataSize = LoadWindowsFontFromMem_GetSize_Helper(lf, &type);
+                            if (fontDataSize != GDI_ERROR && fontDataSize > 4 && type != ~((DWORD)0)) {
+                                uint8_t * fontData = (uint8*)malloc(fontDataSize);
+                                if (fontData != NULL) {
+                                    ImFont * font = NULL;
+                                    DWORD fontDataRet = GetFontData(CBSTR.hDevice, type, 0, fontData, fontDataSize);
+                                    if (fontDataRet != GDI_ERROR && fontDataRet == fontDataSize) {
+
+                                        if (memcmp("\0\0\0\0", fontData, sizeof("\0\0\0\0")) == 0) {
+                                            PRINT_DEBUG("%s\n", "Invalid font tag. Skipping.");
+                                        } else {
+
+                                            if (type == 0x66637474) {
+                                                if (memcmp(fontData, "ttcf", sizeof("ttcf")) != 0) {
+                                                    PRINT_DEBUG("TAG %x %x %x %x %s\n", fontData[0], fontData[1], fontData[2], fontData[3], "NOT A TrueType Collection file, despite detection result.");
+                                                    memset(fontData, '\0', fontDataSize);
+                                                    free(fontData);
+                                                    fontData = NULL;
+                                                } else {
+                                                    PRINT_DEBUG("%s\n", "Found TrueType Collection file.");
+                                                }
+                                            }
+
+                                            if (fontData != NULL) {
+                                                PRINT_DEBUG("%s %s %s\n", "Font considered valid. Attempting to import", lf->lfFaceName, "into ImGUI.");
+                                                if ((CBSTR.foundBits & 0xF) != 0x0) {
+                                                    CBSTR.fontcfg.MergeMode = true;
+                                                    PRINT_DEBUG("%s\n", "Merging fonts.");
+                                                }
+
+                                                font = CBSTR.atlas->AddFontFromMemoryTTF(fontData, fontDataSize, CBSTR.font_size, &(CBSTR.fontcfg));
+                                                if (font != NULL) {
+                                                    PRINT_DEBUG("%s %s %s\n", "ImGUI loaded font", lf->lfFaceName, "successfully.");
+                                                    if (CBSTR.defaultFont == NULL) {
+                                                        CBSTR.defaultFont = font;
+                                                    }
+                                                    ret = 1;
+                                                } else {
+                                                    PRINT_DEBUG("%s %s.\n", "ImGUI failed to load font", lf->lfFaceName);
+                                                }
+                                            }
+
+                                        }
+
+                                    } else {
+                                        PRINT_DEBUG("%s %d.\n", "GetFontData() failed. Ret: ", fontDataRet);
+                                    }
+
+                                    if (font == NULL) {
+                                        if (fontData != NULL) {
+                                            memset(fontData, '\0', fontDataSize);
+                                            free(fontData);
+                                            fontData = NULL;
+                                        }
+                                    }
+                                }
+                            } else {
+                                PRINT_DEBUG("%s %d.\n", "GetFontData() failed. Unable to get initial size of font data. Ret: ", fontDataSize);
+                            }
+                        } else {
+                            PRINT_DEBUG("%s %s.\n", "Licensing failure. Cannot use font", lf->lfFaceName);
+                        }
+                    }
+
+                    free(metric);
+                    metric = NULL;
+                }
+            }
+            SelectObject(CBSTR.hDevice, oldFont);
+            DeleteObject(hFont);
+        }
+    }
+    return ret;
+}
+
+int CALLBACK cb_enumfonts(const LOGFONT *lf, const TEXTMETRIC *tm, DWORD fontType, LPARAM UNUSED)
+{
+    int ret = 1; // Continue iteration.
+    cb_font_str * cbStr = &CBSTR;
+    if (CBSTR.atlas != NULL && lf != NULL && fontType == TRUETYPE_FONTTYPE) {
+        /*
+            foundBits:
+                Bit  1: Loaded ANSI font.
+                Bit  2: Loaded Japanese font.
+                Bit  4: Loaded Chinese font.
+                Bit  8: Loaded Korean font.
+                Bit 10: Loaded preferred ANSI font.
+                Bit 20: Loaded preferred CJ font.
+                Bit 40: Loaded preferred K font.
+                Bit 80: Searched for preferred fonts.
+         */
+        if ((CBSTR.foundBits & 0x80) == 0) {
+            // Load ANSI first, or the other fonts will define the glyphs for english text.
+            if ((CBSTR.foundBits & 0x1) == 0) {
+                // preferred ANSI font.
+                if ((strncmp(lf->lfFaceName, "Microsoft Sans Serif", sizeof("Microsoft Sans Serif")) == 0) && ((CBSTR.foundBits & 0x10) == 0)) {
+                    if (LoadWindowsFontFromMem(lf) == 1) {
+                        CBSTR.foundBits = CBSTR.foundBits | 0x10 | 0x1;
+                        ret = 0;
+                        PRINT_DEBUG("%s %s.\n", "Loaded preferred font:", lf->lfFaceName);
+                    }
+                }
+            } else {
+                // preferred CJ font.
+                if ((strncmp(lf->lfFaceName, "SimSun", sizeof("SimSun")) == 0) && ((CBSTR.foundBits & 0x20) == 0)) {
+                    if (LoadWindowsFontFromMem(lf) == 1) {
+                        CBSTR.foundBits = CBSTR.foundBits | 0x20 | 0x2 | 0x4;
+                        PRINT_DEBUG("%s %s.\n", "Loaded preferred font:", lf->lfFaceName);
+                    }
+                }
+                // preferred K font.
+                if ((strncmp(lf->lfFaceName, "Malgun Gothic", sizeof("Malgun Gothic")) == 0) && ((CBSTR.foundBits & 0x40) == 0)) {
+                    if (LoadWindowsFontFromMem(lf) == 1) {
+                        CBSTR.foundBits = CBSTR.foundBits | 0x40 | 0x8;
+                        PRINT_DEBUG("%s %s.\n", "Loaded preferred font:", lf->lfFaceName);
+                    }
+                }
+            }
+        } else {
+            // Load ANSI first, or the other fonts will define the glyphs for english text.
+            if ((CBSTR.foundBits & 0x1) == 0) {
+                if (lf->lfCharSet == ANSI_CHARSET) {
+                    if (LoadWindowsFontFromMem(lf) == 1) {
+                        CBSTR.foundBits = CBSTR.foundBits | 0x1;
+                        ret = 0;
+                        PRINT_DEBUG("%s %s.\n", "Loaded ANSI_CHARSET:", lf->lfFaceName);
+                    }
+                }
+            } else {
+                if ((CBSTR.foundBits & 0x2) == 0) {
+                    if (lf->lfCharSet == SHIFTJIS_CHARSET) {
+                        if (LoadWindowsFontFromMem(lf) == 1) {
+                            CBSTR.foundBits = CBSTR.foundBits | 0x2;
+                            PRINT_DEBUG("%s %s.\n", "Loaded SHIFTJIS_CHARSET:", lf->lfFaceName);
+                        }
+                    }
+                }
+                if ((CBSTR.foundBits & 0x4) == 0) {
+                    if (lf->lfCharSet == CHINESEBIG5_CHARSET) {
+                        if (LoadWindowsFontFromMem(lf) == 1) {
+                            CBSTR.foundBits = CBSTR.foundBits | 0x4;
+                            PRINT_DEBUG("%s %s.\n", "Loaded CHINESEBIG5_CHARSET:", lf->lfFaceName);
+                        }
+                    }
+                }
+                if ((CBSTR.foundBits & 0x8) == 0) {
+                    if (lf->lfCharSet == HANGUL_CHARSET) {
+                        if (LoadWindowsFontFromMem(lf) == 1) {
+                            CBSTR.foundBits = CBSTR.foundBits | 0x8;
+                            PRINT_DEBUG("%s %s.\n", "Loaded HANGUL_CHARSET:", lf->lfFaceName);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if ((CBSTR.foundBits & 0xF) == 0xF) {
+        PRINT_DEBUG("%s\n", "Loaded all needed fonts.");
+        ret = 0; // Stop iteration.
+    }
+    return ret;
+}
+#endif
+
 void Steam_Overlay::CreateFonts()
 {
     if (fonts_atlas) return;
@@ -899,7 +1114,69 @@ void Steam_Overlay::CreateFonts()
     ImFont *font = NULL;
 
 #if defined(__WINDOWS__)
-    font = Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\micross.ttf", font_size, &fontcfg);
+    // Do this instead of calling Fonts->AddFontFromFileTTF(). As *some* Windows implementations don't ship anything in C:\Windows\Fonts.
+    HDC oDC = GetDC(NULL);
+    HWND oWND = WindowFromDC(oDC);
+    int caps = GetDeviceCaps(oDC, RASTERCAPS);
+    if (caps != 0) {
+
+        int width = GetDeviceCaps(oDC, HORZRES);
+        int height = GetDeviceCaps(oDC, VERTRES);
+        HBITMAP hBitmap = CreateCompatibleBitmap(oDC, width, height);
+
+        LOGFONT lf;
+        memset(&lf, '\0', sizeof(LOGFONT));
+        lf.lfCharSet = DEFAULT_CHARSET;
+        lf.lfHeight = font_size;
+        lf.lfQuality = ANTIALIASED_QUALITY;
+        memset(&CBSTR, '\0', sizeof(cb_font_str));
+        CBSTR.font_size = font_size;
+        CBSTR.fontcfg = fontcfg;
+        CBSTR.atlas = Fonts;
+        CBSTR.hDevice = CreateCompatibleDC(oDC);
+        HGDIOBJ hOldBitmap = SelectObject(CBSTR.hDevice, hBitmap);
+        DeleteObject(hOldBitmap);
+
+        PRINT_DEBUG("%s\n", "Atempting to load preferred ANSI font from Win32 API.");
+        EnumFontFamiliesExA(CBSTR.hDevice, &lf, cb_enumfonts, 0, 0);
+        if ((CBSTR.foundBits & 0x1) != 0x1) {
+            CBSTR.foundBits = CBSTR.foundBits | 0x80;
+            PRINT_DEBUG("%s\n", "Atempting to load generic ANSI font from Win32 API.");
+            EnumFontFamiliesExA(CBSTR.hDevice, &lf, cb_enumfonts, 0, 0);
+            if ((CBSTR.foundBits & 0x1) != 0x1) {
+                PRINT_DEBUG("%s\n", "Falling back to built in ImGUI ANSI font.");
+                CBSTR.defaultFont = Fonts->AddFontDefault(&fontcfg);
+                if (CBSTR.defaultFont == NULL) {
+                    PRINT_DEBUG("%s\n", "Built in ImGUI ANSI font failed to load. Weird text will probably happen.");
+                }
+                CBSTR.foundBits = CBSTR.foundBits | 0x1;
+            }
+            CBSTR.foundBits = CBSTR.foundBits ^ 0x80;
+        }
+        if ((CBSTR.foundBits & 0xE) != 0xE) {
+            PRINT_DEBUG("%s\n", "Atempting to load preferred CJK fonts from Win32 API.");
+            EnumFontFamiliesExA(CBSTR.hDevice, &lf, cb_enumfonts, 0, 0);
+        }
+        CBSTR.foundBits = CBSTR.foundBits | 0x80;
+        if ((CBSTR.foundBits & 0xF) != 0xF) {
+            PRINT_DEBUG("%s\n", "Loading generic CJK fonts from Win32 API.");
+            EnumFontFamiliesExA(CBSTR.hDevice, &lf, cb_enumfonts, 0, 0);
+        }
+        if (CBSTR.defaultFont != NULL) {
+            font = CBSTR.defaultFont;
+        }
+        if (need_extra_fonts == true) {
+            if ((CBSTR.foundBits & 0xF) == 0xF) {
+                need_extra_fonts = false;
+            }
+        }
+
+        DeleteDC(CBSTR.hDevice); // Order is important.
+        DeleteObject(hBitmap);
+    }
+    ReleaseDC(oWND, oDC);
+#else
+    font = Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/roboto/unhinted/RobotoCondensed-Regular.ttf", font_size, &fontcfg);
 #endif
 
     if (!font) {
@@ -909,11 +1186,12 @@ void Steam_Overlay::CreateFonts()
     font_notif = font_default = font;
 
     if (need_extra_fonts) {
-        PRINT_DEBUG("loading extra fonts\n");
-        fontcfg.MergeMode = true;
 #if defined(__WINDOWS__)
-        Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simsun.ttc", font_size, &fontcfg);
-        Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\malgun.ttf", font_size, &fontcfg);
+        PRINT_DEBUG("%s\n", "Unable to load extra fonts! Some text may not be readable!");
+#else
+        PRINT_DEBUG("%s\n", "loading extra fonts.");
+        fontcfg.MergeMode = true;
+        Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", font_size, &fontcfg);
 #endif
     }
 
