@@ -1,4 +1,5 @@
-/**
+
+//*
  * Gamepad Input Library
  * Sean Middleditch
  * Copyright (C) 2010  Sean Middleditch
