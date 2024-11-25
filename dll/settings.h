@@ -80,6 +80,7 @@ class Settings {
     std::map<AppId_t, std::string> app_paths;
     std::map<std::string, Leaderboard_config> leaderboards;
     std::map<std::string, Stat_config> stats;
+    std::map<int, int> profile_images;
     bool create_unknown_leaderboards;
     uint16 port;
 
@@ -147,6 +148,8 @@ public:
     //images
     std::map<int, struct Image_Data> images;
     int add_image(std::string data, uint32 width, uint32 height);
+    int get_profile_image(int eAvatarSize);
+    int set_profile_image(int eAvatarSize, Image_Data * image);
 
     //controller
     struct Controller_Settings controller_settings;

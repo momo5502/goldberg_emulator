@@ -224,3 +224,45 @@ int Settings::add_image(std::string data, uint32 width, uint32 height)
     images[last] = dt;
     return last;
 }
+
+int Settings::get_profile_image(int eAvatarSize)
+{
+    int ret = 0;
+    for (auto i : profile_images) {
+        if (i.first == eAvatarSize) {
+            ret = i.second;
+            break;
+        }
+    }
+    return ret;
+}
+
+int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
+{
+    bool size_ok = false;
+    int ref = 0;
+
+    if (image != NULL) {
+        if (eAvatarSize == k_EAvatarSize32x32 && image->width > 0 && image->width <= 32 && image->height > 0 && image->height <= 32)
+            size_ok = true;
+        if (eAvatarSize == k_EAvatarSize64x64 && image->width > 32 && image->width <= 64 && image->height > 32 && image->height <= 64)
+            size_ok = true;
+        if (eAvatarSize == k_EAvatarSize184x184 && image->width > 64 && image->width <= 184 && image->height > 64 && image->height <= 184)
+            size_ok = true;
+
+        if (size_ok == true && image->data.length() > 0) {
+            ref = this->add_image(image->data, image->width, image->height);
+            PRINT_DEBUG("set_profile_image %d -> %d.\n", eAvatarSize, ref);
+            profile_images[eAvatarSize] = ref;
+        } else {
+            PRINT_DEBUG("%s %d %dx%d %"PRI_ZU".\n",
+                        "set_profile_image failed",
+                        eAvatarSize,
+                        image->width,
+                        image->height,
+                        image->data.length());
+        }
+    }
+
+    return ref;
+}

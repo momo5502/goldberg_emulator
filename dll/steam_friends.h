@@ -94,25 +94,132 @@ bool isAppIdCompatible(Friend *f)
     return settings->get_local_game_id().AppID() == f->appid();
 }
 
+STEAM_CALL_RESULT( AvatarImageLoaded_t )
 struct Avatar_Numbers add_friend_avatars(CSteamID id)
 {
     uint64 steam_id = id.ConvertToUint64();
     auto avatar_ids = avatars.find(steam_id);
-    if (avatar_ids != avatars.end()) {
-        return avatar_ids->second;
+    bool generate = true;
+    int base_image = 0;
+    struct Avatar_Numbers avatar_numbers;
+    if (settings->get_local_steam_id().ConvertToUint64() == steam_id) {
+        avatar_numbers.smallest = settings->get_profile_image(k_EAvatarSize32x32);
+        if (avatar_numbers.smallest != 0) {
+            base_image = avatar_numbers.smallest;
+        }
+        avatar_numbers.medium = settings->get_profile_image(k_EAvatarSize64x64);
+        if (avatar_numbers.medium != 0) {
+            base_image = avatar_numbers.medium;
+        }
+        avatar_numbers.large = settings->get_profile_image(k_EAvatarSize184x184);
+        if (avatar_numbers.large != 0) {
+            base_image = avatar_numbers.large;
+        }
+
+        if (base_image != 0) {
+            generate = false;
+            if (avatar_numbers.smallest == 0) {
+                avatar_numbers.smallest = base_image;
+            }
+            if (avatar_numbers.medium == 0) {
+                avatar_numbers.medium = base_image;
+            }
+            if (avatar_numbers.large == 0) {
+                avatar_numbers.large = base_image;
+            }
+        }
+
+        if (avatar_ids != avatars.end()) {
+            // Check for updated entry.
+            if (avatar_numbers.smallest == avatar_ids->second.smallest &&
+                avatar_numbers.medium == avatar_ids->second.medium &&
+                avatar_numbers.large == avatar_ids->second.large) {
+                return avatar_ids->second;
+            }
+        }
+    } else {
+        //TODO: get real image data from other peers
+
+        if (avatar_ids != avatars.end()) {
+            //TODO: Check for updated entry.
+            return avatar_ids->second;
+        }
     }
 
-    //TODO: get real image data from self/other peers
-    struct Avatar_Numbers avatar_numbers;
-    std::string small_avatar(32 * 32 * 4, 0);
-    std::string medium_avatar(64 * 64 * 4, 0);
-    std::string large_avatar(184 * 184 * 4, 0);
+    if (generate == true) {
+        std::string small_avatar(32 * 32 * 4, 0);
+        std::string medium_avatar(64 * 64 * 4, 0);
+        std::string large_avatar(184 * 184 * 4, 0);
 
-    avatar_numbers.smallest = settings->add_image(small_avatar, 32, 32);
-    avatar_numbers.medium = settings->add_image(medium_avatar, 64, 64);
-    avatar_numbers.large = settings->add_image(large_avatar, 184, 184);
+        avatar_numbers.smallest = settings->add_image(small_avatar, 32, 32);
+        avatar_numbers.medium = settings->add_image(medium_avatar, 64, 64);
+        avatar_numbers.large = settings->add_image(large_avatar, 184, 184);
+    }
 
     avatars[steam_id] = avatar_numbers;
+
+    // Generate callbacks.
+    uint32 width = 0;
+    uint32 height = 0;
+    AvatarImageLoaded_t ail_data = {};
+    bool sent_ail = false;
+
+    auto image = settings->images.find(avatar_numbers.smallest);
+    if (image != settings->images.end()) {
+        width = image->second.width;
+        height = image->second.height;
+    } else {
+        width = 0;
+        height = 0;
+    }
+
+    if (avatar_numbers.smallest) {
+       ail_data.m_steamID = steam_id;
+       ail_data.m_iImage = avatar_numbers.smallest;
+       ail_data.m_iWide = width;
+       ail_data.m_iTall = height;
+       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       sent_ail = true;
+    }
+
+    image = settings->images.find(avatar_numbers.medium);
+    if (image != settings->images.end()) {
+        width = image->second.width;
+        height = image->second.height;
+    } else {
+        width = 0;
+        height = 0;
+    }
+
+    if (avatar_numbers.medium) {
+       ail_data.m_steamID = steam_id;
+       ail_data.m_iImage = avatar_numbers.medium;
+       ail_data.m_iWide = width;
+       ail_data.m_iTall = height;
+       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       sent_ail = true;
+    }
+
+    image = settings->images.find(avatar_numbers.large);
+    if (image != settings->images.end()) {
+        width = image->second.width;
+        height = image->second.height;
+    } else {
+        width = 0;
+        height = 0;
+    }
+
+    if (avatar_numbers.large) {
+       ail_data.m_steamID = steam_id;
+       ail_data.m_iImage = avatar_numbers.large;
+       ail_data.m_iWide = width;
+       ail_data.m_iTall = height;
+       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       sent_ail = true;
+    }
+    if (sent_ail) {
+        persona_change(id, k_EPersonaChangeAvatar);
+    }
     return avatar_numbers;
 }
 
@@ -594,10 +701,10 @@ void ActivateGameOverlayInviteDialog( CSteamID steamIDLobby )
 // gets the small (32x32) avatar of the current user, which is a handle to be used in IClientUtils::GetImageRGBA(), or 0 if none set
 int GetSmallFriendAvatar( CSteamID steamIDFriend )
 {
-    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar\n");
     //IMPORTANT NOTE: don't change friend avatar numbers for the same friend or else some games endlessly allocate stuff.
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
+    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar%"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.smallest);
     return numbers.smallest;
 }
 
@@ -605,9 +712,9 @@ int GetSmallFriendAvatar( CSteamID steamIDFriend )
 // gets the medium (64x64) avatar of the current user, which is a handle to be used in IClientUtils::GetImageRGBA(), or 0 if none set
 int GetMediumFriendAvatar( CSteamID steamIDFriend )
 {
-    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar\n");
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
+    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar%"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.medium);
     return numbers.medium;
 }
 
@@ -616,9 +723,9 @@ int GetMediumFriendAvatar( CSteamID steamIDFriend )
 // returns -1 if this image has yet to be loaded, in this case wait for a AvatarImageLoaded_t callback and then call this again
 int GetLargeFriendAvatar( CSteamID steamIDFriend )
 {
-    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar\n");
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
+    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar %"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.large);
     return numbers.large;
 }
 
