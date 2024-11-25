@@ -53,8 +53,22 @@ std::string Local_Storage::get_program_path()
     return " ";
 }
 
+std::string Local_Storage::get_user_pictures_path()
+{
+    return " ";
+}
 
 std::string Local_Storage::get_user_appdata_path()
+{
+    return " ";
+}
+
+bool Local_Storage::is_directory(std::string &path)
+{
+    return false;
+}
+
+std::string Local_Storage::get_parent_directory(std::string &path)
 {
     return " ";
 }
@@ -285,6 +299,29 @@ static std::vector<struct File_Data> get_filenames_recursive(std::string base_pa
 
 #else
 
+static bool DirectoryExists(const char *path) {
+    char tmp[PATH_MAX_STRING_SIZE];
+    struct stat sb;
+    size_t len;
+
+    /* copy path */
+    len = strnlen (path, PATH_MAX_STRING_SIZE);
+    if (len == 0 || len == PATH_MAX_STRING_SIZE) {
+        return false;
+    }
+    memcpy (tmp, path, len);
+    tmp[len] = '\0';
+
+    /* check if path exists and is a directory */
+    if (stat (tmp, &sb) == 0) {
+        if (S_ISDIR (sb.st_mode)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /* recursive mkdir */
 static int mkdir_p(const char *dir, const mode_t mode) {
     char tmp[PATH_MAX_STRING_SIZE];
@@ -423,6 +460,26 @@ std::string Local_Storage::get_game_settings_path()
     return get_program_path().append(game_settings_folder).append(PATH_SEPARATOR);
 }
 
+std::string Local_Storage::get_user_pictures_path() {
+    std::string user_pictures_path = "Pictures";
+#if defined(STEAM_WIN32)
+    WCHAR szPath[MAX_PATH] = {};
+
+    HRESULT hr = SHGetFolderPathW(NULL, CSIDL_MYPICTURES, NULL, 0, szPath);
+
+    if (SUCCEEDED(hr)) {
+        user_pictures_path = utf8_encode(szPath);
+    }
+
+#else
+    char *datadir = getenv("HOME");
+    if (datadir) {
+        user_pictures_path = datadir;
+    }
+#endif
+    return user_pictures_path;
+}
+
 std::string Local_Storage::get_user_appdata_path()
 {
     std::string user_appdata_path = "SAVE";
@@ -503,6 +560,71 @@ Local_Storage::Local_Storage(std::string save_directory)
     if (this->save_directory.back() != *PATH_SEPARATOR) {
         this->save_directory.append(PATH_SEPARATOR);
     }
+}
+
+std::string Local_Storage::get_parent_directory(std::string &path)
+{
+    std::string ret = "";
+    std::string temp = "";
+
+    ret = sanitize_file_name(path);
+    if (ret.length() > 1) {
+        temp = ret[(ret.length() - 1)];
+        if (temp == PATH_SEPARATOR) {
+            ret.erase((ret.length() - 1), 1);
+        }
+    }
+
+    if (ret.length() > 1) {
+        size_t last_pos = 0;
+        size_t count = 0;
+        for (auto i : ret) {
+            temp = i;
+            if (temp == PATH_SEPARATOR) {
+                last_pos = count;
+            }
+            count = count + 1;
+        }
+        if ((last_pos > 0) && (last_pos < (count  - 1))) {
+            ret.erase(last_pos, (count - 1));
+        }
+    }
+
+    ret = desanitize_file_name(ret);
+
+    return ret;
+}
+
+bool Local_Storage::is_directory(std::string &path)
+{
+    bool ret = false;
+#if defined(STEAM_WIN32)
+    std::wstring strPath = utf8_decode(path);
+    ret = DirectoryExists(strPath.c_str());
+#else
+    ret = DirectoryExists(path.c_str());
+#endif
+    return ret;
+}
+
+std::vector<std::string> Local_Storage::get_drive_list()
+{
+    std::vector<std::string> ret;
+#if defined(STEAM_WIN32)
+    DWORD drives = GetLogicalDrives();
+    if (drives != 0) {
+        for (unsigned int x = 0; x < 26; x++) {
+            if (drives & (((DWORD)0x1) << x)) {
+                char tmp[2] = { 'A' + (char)x, '\0' };
+                ret.push_back(std::string(tmp) + ":");
+            }
+        }
+    }
+#else
+    //TODO: Parse /proc/self/mountinfo
+    ret.push_back("/");
+#endif
+    return ret;
 }
 
 void Local_Storage::setAppId(uint32 appid)

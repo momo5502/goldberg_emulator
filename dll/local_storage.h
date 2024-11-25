@@ -60,7 +60,11 @@ private:
 public:
     static std::string get_program_path();
     static std::string get_game_settings_path();
+    static std::string get_user_pictures_path();
     static std::string get_user_appdata_path();
+    static std::string get_parent_directory(std::string &path);
+    static std::vector<std::string> get_drive_list();
+    static bool is_directory(std::string &path);
     Local_Storage(std::string save_directory);
     static int get_file_data(std::string full_path, char *data, unsigned int max_length, unsigned int offset=0);
     void setAppId(uint32 appid);
