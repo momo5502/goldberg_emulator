@@ -340,15 +340,32 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
 
     bool warn_forced = false;
 
+    Image_Data profile_small;
+    Image_Data profile_medium;
+    Image_Data profile_large;
+
     {
         std::string steam_settings_path = local_storage->get_global_settings_path();
 
         std::vector<std::string> paths = local_storage->get_filenames_path(steam_settings_path);
         for (auto & p: paths) {
+            PRINT_DEBUG("global settings path %s\n", p.c_str());
             if (p == "enable_achievement_desc_on_unlock.txt") {
                 enable_achievement_desc_on_unlock = true;
             } else if (p == "enable_displaying_hidden_achievements.txt") {
                 enable_displaying_hidden_achievements = true;
+            } else if (p == "profile_small.jpg") {
+                profile_small.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_small.width, &profile_small.height));
+            } else if (p == "profile_medium.jpg") {
+                profile_medium.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_medium.width, &profile_medium.height));
+            } else if (p == "profile_large.jpg") {
+                profile_large.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_large.width, &profile_large.height));
+            } else if (p == "profile_small.png") {
+                profile_small.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_small.width, &profile_small.height));
+            } else if (p == "profile_medium.png") {
+                profile_medium.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_medium.width, &profile_medium.height));
+            } else if (p == "profile_large.png") {
+                profile_large.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_large.width, &profile_large.height));
             }
         }
     }
@@ -433,6 +450,24 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
     settings_client->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
     settings_server->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
+    if (profile_small.data.length() > 0 && profile_small.width > 0 && profile_small.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize32x32, &profile_small);
+        settings_server->set_profile_image(k_EAvatarSize32x32, &profile_small);
+    } else {
+        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Small user profile image not defined.", profile_small.data.length(), profile_small.width, profile_small.height);
+    }
+    if (profile_medium.data.length() > 0 && profile_medium.width > 0 && profile_medium.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize64x64, &profile_medium);
+        settings_server->set_profile_image(k_EAvatarSize64x64, &profile_medium);
+    } else {
+        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Medium user profile image not defined.", profile_medium.data.length(), profile_medium.width, profile_medium.height);
+    }
+    if (profile_large.data.length() > 0 && profile_large.width > 0 && profile_large.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize184x184, &profile_large);
+        settings_server->set_profile_image(k_EAvatarSize184x184, &profile_large);
+    } else {
+        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Large user profile image not defined.", profile_large.data.length(), profile_large.width, profile_large.height);
+    }
 
     {
         std::string dlc_config_path = Local_Storage::get_game_settings_path() + "DLC.txt";

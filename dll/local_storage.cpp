@@ -34,6 +34,19 @@ struct File_Data {
     std::string name;
 };
 
+std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> & in) {
+    std::string out;
+
+    for (auto i : in) {
+        out += i.channels.r;
+        out += i.channels.g;
+        out += i.channels.b;
+        out += i.channels.a;
+    }
+
+    return out;
+}
+
 #ifdef NO_DISK_WRITES
 std::string Local_Storage::get_program_path()
 {
@@ -807,6 +820,10 @@ std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_pa
         std::copy(img, img + width * height, res.begin());
 
         stbi_image_free(img);
+    } else {
+        width = 0;
+        height = 0;
+        PRINT_DEBUG("%s %s. reason: %s\n", "Failed to load image at", image_path.c_str(), stbi_failure_reason());
     }
     if (out_width != nullptr) {
         if (width > 0) {

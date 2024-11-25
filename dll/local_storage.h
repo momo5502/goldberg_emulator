@@ -41,6 +41,8 @@ struct image_t
     std::vector<image_pixel_t> pix_map;
 };
 
+std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> & in);
+
 class Local_Storage {
 public:
     static constexpr auto inventory_storage_folder = "inventory";
