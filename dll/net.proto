@@ -179,6 +179,31 @@ message Friend {
     uint64 lobby_id = 5;
 }
 
+message Image {
+    enum MessageTypes {
+        REQUEST = 0;
+        NOTIFY = 1;
+    }
+
+    enum ImgTypes {
+        RAW = 0;
+        JPG = 1;
+        PNG = 2;
+        GIF = 3;
+    }
+
+    MessageTypes type = 1;
+    ImgTypes img_type = 2;
+    uint32 img_width = 3;
+    uint32 img_height = 4;
+    uint32 img_components = 5;
+    bytes img_data = 6;
+}
+
+message Friend_Avatar {
+    Image img = 1;
+}
+
 message Auth_Ticket {
     uint32 number = 1;
 
@@ -230,6 +255,7 @@ message Common_Message {
         Networking_Sockets networking_sockets = 13;
         Steam_Messages steam_messages = 14;
         Networking_Messages networking_messages = 15;
+        Friend_Avatar friend_avatar = 16;
     }
 
     uint32 source_ip = 128;

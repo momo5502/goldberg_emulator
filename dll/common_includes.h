@@ -125,6 +125,7 @@ inline void reset_LastError()
     #include <sys/ioctl.h>
     #include <sys/socket.h>
     #include <sys/mount.h>
+    #include <sys/stat.h>
     #include <sys/statvfs.h>
     #include <sys/time.h>
 
@@ -219,5 +220,7 @@ inline std::string ascii_to_lowercase(std::string data) {
 #define DEFAULT_LANGUAGE "english"
 
 #define LOBBY_CONNECT_APPID ((uint32)-2)
+
+#define FRIEND_AVATAR_MAX_IMAGE_LENGTH (5 * 1024 * 1024)
 
 #endif//__INCLUDED_COMMON_INCLUDES__
