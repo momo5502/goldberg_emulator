@@ -25,6 +25,72 @@
 #define STEAMCLIENT_API static
 #endif
 
+#define GOLDBERG_CALLBACK_INTERNAL(parent, fname, cb_type) \
+    struct GB_CCallbackInternal_ ## fname : private GB_CCallbackInterImp< sizeof(cb_type) > { \
+        public: \
+            ~GB_CCallbackInternal_ ## fname () { if (m_nCallbackFlags & k_ECallbackFlagsRegistered) { \
+                                                    bool ready = false; \
+                                                    do { \
+                                                        if (global_mutex.try_lock() == true) { \
+                                                            Steam_Client * client = get_steam_client(); \
+                                                            if (client != NULL) { \
+                                                                get_steam_client()->UnregisterCallback(this); \
+                                                                ready = true; \
+                                                            } \
+                                                            global_mutex.unlock(); \
+                                                        } \
+                                                    } while (!ready); \
+                                                 } }\
+            GB_CCallbackInternal_ ## fname () {} \
+            GB_CCallbackInternal_ ## fname ( const GB_CCallbackInternal_ ## fname & ) {} \
+            GB_CCallbackInternal_ ## fname & operator=(const GB_CCallbackInternal_ ## fname &) { return *this; } \
+        private: \
+            virtual void Run(void *callback) { \
+                if (!(m_nCallbackFlags & k_ECallbackFlagsRegistered)) { \
+                   bool ready = false; \
+                   do { \
+                       if (global_mutex.try_lock() == true) { \
+                           Steam_Client * client = get_steam_client(); \
+                           if (client != NULL) { \
+                               client->RegisterCallback(this, cb_type::k_iCallback); \
+                               ready = true; \
+                           } \
+                           global_mutex.unlock(); \
+                       } \
+                   } while (!ready); \
+                } \
+                if (m_nCallbackFlags & k_ECallbackFlagsRegistered) { \
+                    parent *obj = reinterpret_cast<parent*>(reinterpret_cast<char*>(this) - offsetof(parent, m_steamcallback_ ## fname)); \
+                    obj->fname(reinterpret_cast<cb_type*>(callback)); \
+                } \
+        } \
+    } m_steamcallback_ ## fname ; void fname( cb_type *callback )
+
+template<int sizeof_cb_type>
+class GB_CCallbackInterImp : protected CCallbackBase
+{
+    public:
+        virtual ~GB_CCallbackInterImp() { if (m_nCallbackFlags & k_ECallbackFlagsRegistered) {
+                                              bool ready = false;
+                                              do {
+                                                  if (global_mutex.try_lock() == true) {
+                                                      Steam_Client * client = get_steam_client();
+                                                      if (client != NULL) {
+                                                          get_steam_client()->UnregisterCallback(this);
+                                                          ready = true;
+                                                      }
+                                                      global_mutex.unlock();
+                                                  }
+                                              } while (!ready);
+                                          } }
+        void SetGameserverFlag() { m_nCallbackFlags |= k_ECallbackFlagsGameServer; }
+    protected:
+        friend class CCallbackMgr;
+        virtual void Run(void *callback) = 0;
+        virtual void Run( void *callback, bool io_failure, SteamAPICall_t api_fp) { Run(callback); }
+        virtual int GetCallbackSizeBytes() { return sizeof_cb_type; }
+};
+
 Steam_Client *get_steam_client();
 bool steamclient_has_ipv6_functions();
 
