@@ -117,8 +117,8 @@ bool GetImageRGBA( int iImage, uint8 *pubDest, int nDestBufferSize )
 
     unsigned size = image->second.data.size();
     if (nDestBufferSize < size) {
+        PRINT_DEBUG("GetImageRGBA %i Given buffer too small. Got 0x%x bytes. Need 0x%x bytes.\n", iImage, nDestBufferSize, size);
         size = nDestBufferSize;
-        PRINT_DEBUG("GetImageRGBA %i Given buffer too small. Got 0x%x bytes. Need 0x%x bytes.", iImage, nDestBufferSize, size);
     }
     image->second.data.copy((char *)pubDest, nDestBufferSize);
     return true;
