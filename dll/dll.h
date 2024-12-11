@@ -93,6 +93,7 @@ class GB_CCallbackInterImp : protected CCallbackBase
 
 Steam_Client *get_steam_client();
 bool steamclient_has_ipv6_functions();
+Steam_Client *try_get_steam_client();
 
 HSteamUser flat_hsteamuser();
 HSteamPipe flat_hsteampipe();

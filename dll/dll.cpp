@@ -140,6 +140,16 @@ Steam_Client *get_steam_client()
     return steamclient_instance;
 }
 
+Steam_Client *try_get_steam_client()
+{
+    Steam_Client * ret = NULL;
+    if (global_mutex.try_lock() == true) {
+        ret = steamclient_instance;
+        global_mutex.unlock();
+    }
+    return ret;
+}
+
 void destroy_client()
 {
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
