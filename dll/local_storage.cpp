@@ -47,6 +47,141 @@ std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t
     return out;
 }
 
+struct our_stbi_buffer {
+    uint8 * target;
+    size_t target_length;
+    size_t current_offset;
+};
+
+void our_stbi_write_func(void *context, void *data, int size) {
+    struct our_stbi_buffer * con = (struct our_stbi_buffer *)context;
+    uint8 * in_data = (uint8 *)data;
+    if (in_data != NULL &&
+        con != NULL &&
+        con->target != NULL &&
+        con->target_length > 0 &&
+        con->current_offset < con->target_length &&
+        (con->current_offset + size) < con->target_length) {
+        for (size_t x = 0; (x < size && (con->current_offset + x) < con->target_length); x++) {
+            con->target[(con->current_offset + x)] = in_data[x];
+        }
+        con->current_offset += size;
+    }
+    return;
+}
+
+std::string convert_raw_uint8_to_png_std_string(uint8 * in, int width, int height, int components) {
+    struct our_stbi_buffer buf;
+    std::string out;
+    out.clear();
+
+    if (in != NULL && width > 0 && height > 0 && components > 0 && components <= 4) {
+        buf.target_length = (width * height * components);
+        buf.current_offset = 0;
+        buf.target = new uint8[(width * height * components)];
+        if (buf.target != NULL) {
+            if (stbi_write_png_to_func(our_stbi_write_func, &buf, width, height, components, in, 0) == 1) {
+                for (size_t x = 0; x < (width * height * components); x++) {
+                    char a = (char)buf.target[x];
+                    out += a;
+                }
+            }
+
+            delete buf.target;
+            buf.target = NULL;
+        }
+        buf.target_length = 0;
+        buf.current_offset = 0;
+    }
+
+    return out;
+}
+
+std::string convert_raw_uint8_to_jpg_std_string(uint8 * in, int width, int height, int components) {
+    struct our_stbi_buffer buf;
+    std::string out;
+    out.clear();
+
+    if (in != NULL && width > 0 && height > 0 && components > 0 && components <= 4) {
+        buf.target_length = (width * height * components);
+        buf.current_offset = 0;
+        buf.target = new uint8[(width * height * components)];
+        if (buf.target != NULL) {
+            if (stbi_write_jpg_to_func(our_stbi_write_func, &buf, width, height, components, in, 0) == 1) {
+                for (size_t x = 0; x < (width * height * components); x++) {
+                    char a = (char)buf.target[x];
+                    out += a;
+                }
+            }
+
+            delete buf.target;
+            buf.target = NULL;
+        }
+        buf.target_length = 0;
+        buf.current_offset = 0;
+    }
+
+    return out;
+}
+
+std::string convert_imgbuf_std_string_to_std_string_uint8(std::string in,
+                                                          int * out_width,
+                                                          int * out_height,
+                                                          int * out_components,
+                                                          int desired_components) {
+    std::string out;
+    out.clear();
+    int w = 0;
+    int h = 0;
+    int c = 0;
+
+    if (in.length() > 0 &&
+        desired_components > 0 &&
+        desired_components <= 4) {
+        uint8 * buf = (uint8*)stbi_load_from_memory((stbi_uc *)in.c_str(), in.length(), &w, &h, &c, desired_components);
+        if (buf != NULL) {
+            if (w > 0 && h > 0 && desired_components > 0) {
+                for (size_t x = 0; x < (w * h * desired_components); x++) {
+                    char a = buf[x];
+                    out += a;
+                }
+            }
+            if (out_width != NULL) {
+                *out_width = w;
+            }
+            if (out_height != NULL) {
+                *out_height = h;
+            }
+            if (out_components != NULL) {
+                *out_components = c;
+            }
+            stbi_image_free(buf);
+        } else {
+            out.clear();
+            if (out_width != NULL) {
+                *out_width = 0;
+            }
+            if (out_height != NULL) {
+                *out_height = 0;
+            }
+            if (out_components != NULL) {
+                *out_components = 0;
+            }
+            PRINT_DEBUG("%s %p. reason: %s\n", "Failed to decode image at", &in, stbi_failure_reason());
+        }
+    }
+
+    return out;
+}
+
+std::string convert_png_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components) {
+    return convert_imgbuf_std_string_to_std_string_uint8(in, width, height, components, desired_components);
+}
+
+std::string convert_jpg_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components) {
+    return convert_imgbuf_std_string_to_std_string_uint8(in, width, height, components, desired_components);
+}
+
 #ifdef NO_DISK_WRITES
 std::string Local_Storage::get_program_path()
 {
@@ -696,6 +831,57 @@ int Local_Storage::store_data_settings(std::string file, char *data, unsigned in
     return store_file_data(get_global_settings_path(), file, data, length);
 }
 
+int Local_Storage::copy_file_data(std::string src_full_path, std::string dest_full_path)
+{
+    std::ifstream srcfile;
+    std::ofstream destfile;
+    char * buf = NULL;
+    size_t readcount = 0;
+    const size_t bufsize = 1024;
+    bool fail = false;
+
+    buf = new char[bufsize];
+    if (buf == NULL) return -1;
+
+    srcfile.open(utf8_decode(src_full_path), std::ios::binary | std::ios::in);
+    if (!srcfile.is_open()) {
+        delete buf;
+        buf = NULL;
+        return -1;
+    }
+
+    destfile.open(utf8_decode(dest_full_path), std::ios::binary | std::ios::out);
+    if (!destfile.is_open()) {
+        delete buf;
+        buf = NULL;
+        srcfile.close();
+        return -1;
+    }
+
+    srcfile.seekg(0, std::ios::beg);
+    destfile.seekp(0, std::ios::beg);
+
+    do {
+      buf[readcount] = srcfile.get();
+      if (srcfile.eof() || (readcount + 1) == bufsize) {
+          destfile.write(buf, (readcount + 1));
+          readcount = 0;
+      } else {
+          readcount++;
+      }
+      if (srcfile.fail() || destfile.fail()) {
+          fail = true;
+      }
+    } while (srcfile.eof() == false && srcfile.fail() == false && destfile.fail() == false);
+
+    srcfile.close();
+    destfile.close();
+    reset_LastError();
+    delete buf;
+    buf = NULL;
+    return (!fail) ? 1 : 0;
+}
+
 int Local_Storage::get_file_data(std::string full_path, char *data, unsigned int max_length, unsigned int offset)
 {
     std::ifstream myfile;
@@ -964,6 +1150,52 @@ std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_pa
 
     reset_LastError();
     return res;
+}
+
+int32_t Local_Storage::save_avatar_image(int32_t eAvatarSize, int32_t width, int32_t height, uint8_t * img_ptr)
+{
+    int32_t ret = 0;
+    std::string image_path = "";
+    switch (eAvatarSize) {
+        case k_EAvatarSize32x32:
+            if (width > 0 &&
+                width <= 32 &&
+                height > 0 &&
+                height <= 32) {
+                image_path += "avatar_small.";
+            }
+            break;
+        case k_EAvatarSize64x64:
+            if (width > 32 &&
+                width <= 64 &&
+                height > 32 &&
+                height <= 64) {
+                image_path += "avatar_medium.";
+            }
+            break;
+        case k_EAvatarSize184x184:
+            if (width > 64 &&
+                width <= 184 &&
+                height > 64 &&
+                height <= 184) {
+                image_path += "avatar_large.";
+            }
+            break;
+        case k_EAvatarSizeMAX:
+        default:
+            image_path.clear();
+            break;
+    };
+
+    if (image_path.length() > 0 && img_ptr != NULL) {
+        delete_data_settings(image_path + "jpg");
+        image_path += "png";
+        delete_data_settings(image_path);
+
+        image_path = get_global_settings_path() + image_path;
+        ret = (stbi_write_png(image_path.c_str(), width, height, 4, img_ptr, 0) == 1);
+    }
+    return ret;
 }
 
 bool Local_Storage::save_screenshot(std::string const& image_path, uint8_t* img_ptr, int32_t width, int32_t height, int32_t channels)

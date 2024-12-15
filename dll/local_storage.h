@@ -42,6 +42,11 @@ struct image_t
 };
 
 std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> & in);
+std::string convert_raw_uint8_to_png_std_string(uint8 * in, int width, int height, int components);
+std::string convert_raw_uint8_to_jpg_std_string(uint8 * in, int width, int height, int components);
+
+std::string convert_png_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components);
+std::string convert_jpg_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components);
 
 class Local_Storage {
 public:
@@ -67,6 +72,7 @@ public:
     static bool is_directory(std::string &path);
     Local_Storage(std::string save_directory);
     static int get_file_data(std::string full_path, char *data, unsigned int max_length, unsigned int offset=0);
+    static int copy_file_data(std::string src_full_path, std::string dest_full_path);
     void setAppId(uint32 appid);
     static int store_file_data(std::string folder, std::string file, char *data, unsigned int length);
     static std::vector<std::string> get_filenames_path(std::string path);
@@ -94,6 +100,7 @@ public:
     bool write_json_file(std::string folder, std::string const& file, nlohmann::json const& json);
 
     std::vector<image_pixel_t> load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height);
+    int32_t save_avatar_image(int32_t eAvatarSize, int32_t width, int32_t height, uint8_t * img_ptr);
     bool save_screenshot(std::string const& image_path, uint8_t* img_ptr, int32_t width, int32_t height, int32_t channels);
 };
 
