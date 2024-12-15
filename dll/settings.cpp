@@ -16,7 +16,7 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "settings.h"
-
+#include "dll.h"
 
 std::string Settings::sanitize(std::string name)
 {
@@ -54,6 +54,28 @@ Settings::Settings(CSteamID steam_id, CGameID game_id, std::string name, std::st
 
     this->offline = offline;
     this->create_unknown_leaderboards = true;
+
+    this->next_free = 1;
+    this->preferred_network_image_type = Image::JPG;
+
+    this->background_thread_exit = false;
+    PRINT_DEBUG("%s.\n", "Settings::Settings Creating new background_monitor thread");
+    background_monitor_thread = std::thread(Settings::background_monitor_entry, this);
+}
+
+Settings::~Settings()
+{
+    bool wait = false;
+    {
+        std::lock_guard<std::recursive_mutex> lock(background_thread_mutex);
+        if (background_monitor_thread.joinable()) {
+            background_thread_exit = true;
+            wait = true;
+        }
+    }
+    if (wait) {
+        background_monitor_thread.join();
+    }
 }
 
 CSteamID Settings::get_local_steam_id()
@@ -214,19 +236,126 @@ void Settings::setLeaderboard(std::string leaderboard, enum ELeaderboardSortMeth
     leaderboards[leaderboard] = leader;
 }
 
+int Settings::find_next_free_image_ref() {
+    int ret = 0;
+
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+
+    if (images.size() == 0) {
+        ret = 1;
+    } else {
+        for (auto x : images) {
+            auto y = images.upper_bound(x.first);
+            if (y == images.end()) {
+                if ((x.first + 1) == 0) {
+                    ret = 1;
+                    break;
+                } else {
+                    ret = x.first + 1;
+                    break;
+                }
+            } else {
+                if ((x.first + 1) < y->first) {
+                    if ((x.first + 1) != 0) {
+                        ret = x.first + 1;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    next_free = ret;
+
+    return ret;
+}
+
+int Settings::remove_image(int ref) {
+    int ret = 0;
+
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+
+    auto x = images.find(ref);
+    if (x != images.end()) {
+        images.erase(x);
+        ret = find_next_free_image_ref();
+    } else {
+        ret = next_free;
+    }
+
+    return ret;
+}
+
+int Settings::replace_image(int ref, std::string data, uint32 width, uint32 height)
+{
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+    int ret = 0;
+    if (ref == 0) {
+        ret = add_image(data, width, height);
+    } else {
+        auto t = images.find(ref);
+        if (t != images.end()) {
+            ret = t->first;
+            t->second.data = data;
+            t->second.width = width;
+           t->second.height = height;
+        } else {
+            ret = add_image(data, width, height);
+        }
+    }
+    return ret;
+}
+
 int Settings::add_image(std::string data, uint32 width, uint32 height)
 {
-    int last = images.size() + 1;
-    struct Image_Data dt;
-    dt.width = width;
-    dt.height = height;
-    dt.data = data;
-    images[last] = dt;
+    int last = 0;
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+    if (next_free != 0) {
+        last = next_free;
+        struct Image_Data dt;
+        dt.width = width;
+        dt.height = height;
+        dt.data = data;
+        images[last] = dt;
+        find_next_free_image_ref();
+    } else {
+        PRINT_DEBUG("%s.\n",
+                    "Settings::add_image failed. Buffer is full");
+    }
     return last;
+}
+
+int Settings::get_image(int ref, std::string * data, uint32 * width, uint32 * height)
+{
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+    int ret = 0;
+    auto t = images.find(ref);
+    if (t != images.end()) {
+        ret = t->first;
+        if (data != NULL) {
+            *data = t->second.data;
+        }
+        if (width != NULL) {
+            *width = t->second.width;
+        }
+        if (height != NULL) {
+            *height = t->second.height;
+        }
+    } else {
+        ret = 0;
+        if (width != NULL) {
+            *width = 0;
+        }
+        if (height != NULL) {
+            *height = 0;
+        }
+    }
+    return ret;
 }
 
 int Settings::get_profile_image(int eAvatarSize)
 {
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
     int ret = 0;
     for (auto i : profile_images) {
         if (i.first == eAvatarSize) {
@@ -235,6 +364,64 @@ int Settings::get_profile_image(int eAvatarSize)
         }
     }
     return ret;
+}
+
+void Settings::background_monitor_entry(Settings * settings) {
+    PRINT_DEBUG("%s.\n", "Settings::background_monitor_entry thread starting");
+    if (settings != NULL) {
+        settings->background_monitor();
+    }
+    PRINT_DEBUG("%s.\n", "Settings::background_monitor_entry thread exiting");
+    return;
+}
+
+void Settings::background_monitor() {
+    bool exit = false;
+    do {
+        {
+            std::lock_guard<std::recursive_mutex> lock(background_thread_mutex);
+            exit = background_thread_exit;
+            if (!exit) {
+                if (background_tasks.size() > 0) {
+                    for (auto x = background_tasks.begin(); x != background_tasks.end(); x++) {
+                        bool task_done = false;
+                        Steam_Client * client = try_get_steam_client();
+                        if (client != NULL) {
+                            switch (x->id) {
+                                case Settings_Background_Task_IDs::NOTIFY_AVATAR_IMAGE:
+                                    {
+                                        PRINT_DEBUG("%s.\n", "Settings::background_monitor Got NOTIFY_AVATAR_IMAGE task");
+
+                                        if (client != NULL && client->steam_friends != NULL) {
+                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize32x32);
+                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize64x64);
+                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize184x184);
+                                            task_done = true;
+                                        }
+                                    }
+                                    break;
+                                default:
+                                    PRINT_DEBUG("%s %d.\n", "Settings::background_monitor Unknown task", x->id);
+                                    task_done = true;
+                                    break;
+                            };
+                            if (task_done) {
+                                background_tasks.erase(x);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } while(!exit);
+    return;
+}
+
+void Settings::create_background_notify_task(Settings_Background_Task_IDs id, void *arg = NULL) {
+    std::lock_guard<std::recursive_mutex> lock(background_thread_mutex);
+    background_tasks.push_back(Settings_Background_Task{id, arg});
+    return;
 }
 
 int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
@@ -252,11 +439,13 @@ int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
 
         if (size_ok == true && image->data.length() > 0) {
             ref = this->add_image(image->data, image->width, image->height);
-            PRINT_DEBUG("set_profile_image %d -> %d.\n", eAvatarSize, ref);
+            PRINT_DEBUG("Settings::set_profile_image %d -> %d.\n", eAvatarSize, ref);
+            std::lock_guard<std::recursive_mutex> lock(images_mutex);
             profile_images[eAvatarSize] = ref;
+            create_background_notify_task(Settings_Background_Task_IDs::NOTIFY_AVATAR_IMAGE, NULL);
         } else {
             PRINT_DEBUG("%s %d %dx%d %"PRI_ZU".\n",
-                        "set_profile_image failed",
+                        "Settings::set_profile_image failed",
                         eAvatarSize,
                         image->width,
                         image->height,
@@ -265,4 +454,21 @@ int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
     }
 
     return ref;
+}
+
+void Settings::set_preferred_network_image_type(int new_type)
+{
+    switch (new_type) {
+        case Image::RAW:
+        case Image::PNG:
+        case Image::JPG:
+            this->preferred_network_image_type = new_type;
+            break;
+        default:
+            PRINT_DEBUG("%s %d.\n",
+                        "Settings::set_preferred_network_image_type failed. Requested type",
+                        new_type);
+            break;
+    };
+    return;
 }

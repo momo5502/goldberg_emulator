@@ -65,11 +65,25 @@ struct Controller_Settings {
     std::map<std::string, std::map<std::string, std::pair<std::set<std::string>, std::string>>> action_set_layers;
 };
 
+enum Settings_Background_Task_IDs {
+    NOTIFY_AVATAR_IMAGE = 0
+};
+
+struct Settings_Background_Task {
+    enum Settings_Background_Task_IDs id;
+    void * arg;
+};
+
 class Settings {
     CSteamID steam_id;
     CGameID game_id;
     std::string name, language;
     CSteamID lobby_id;
+    uint32 preferred_network_image_type;
+    bool background_thread_exit;
+    std::vector<Settings_Background_Task> background_tasks;
+    std::thread background_monitor_thread;
+    std::recursive_mutex background_thread_mutex;
 
     bool unlockAllDLCs;
     bool offline;
@@ -83,6 +97,12 @@ class Settings {
     std::map<int, int> profile_images;
     bool create_unknown_leaderboards;
     uint16 port;
+    int next_free;
+
+    int find_next_free_image_ref();
+    void create_background_notify_task(Settings_Background_Task_IDs id, void *arg);
+    static void background_monitor_entry(Settings * settings);
+    void background_monitor();
 
 public:
 #ifdef LOBBY_CONNECT
@@ -90,8 +110,10 @@ public:
 #else
     static const bool is_lobby_connect = false;
 #endif
+
     static std::string sanitize(std::string name);
     Settings(CSteamID steam_id, CGameID game_id, std::string name, std::string language, bool offline);
+    ~Settings();
     CSteamID get_local_steam_id();
     CGameID get_local_game_id();
     const char *get_local_name();
@@ -146,10 +168,16 @@ public:
     std::set<uint64> subscribed_groups;
 
     //images
+    std::recursive_mutex images_mutex;
     std::map<int, struct Image_Data> images;
+    int remove_image(int ref);
+    int replace_image(int ref, std::string data, uint32 width, uint32 height);
     int add_image(std::string data, uint32 width, uint32 height);
+    int get_image(int ref, std::string * data, uint32 * width, uint32 * height);
     int get_profile_image(int eAvatarSize);
     int set_profile_image(int eAvatarSize, Image_Data * image);
+    int get_preferred_network_image_type() { return this->preferred_network_image_type; }
+    void set_preferred_network_image_type(int new_type);
 
     //controller
     struct Controller_Settings controller_settings;
