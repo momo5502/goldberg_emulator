@@ -50,15 +50,15 @@ static void background_thread(Steam_Client *client)
 
 Steam_Client::Steam_Client()
 {
-    uint32 appid = create_localstorage_settings(&settings_client, &settings_server, &local_storage);
-
-    network = new Networking(settings_server->get_local_steam_id(), appid, settings_server->get_port(), &(settings_server->custom_broadcasts), settings_server->disable_networking);
-
     callback_results_client = new SteamCallResults();
     callback_results_server = new SteamCallResults();
     callbacks_client = new SteamCallBacks(callback_results_client);
     callbacks_server = new SteamCallBacks(callback_results_server);
     run_every_runcb = new RunEveryRunCB();
+
+    uint32 appid = create_localstorage_settings(&settings_client, &settings_server, &local_storage);
+
+    network = new Networking(settings_server->get_local_steam_id(), appid, settings_server->get_port(), &(settings_server->custom_broadcasts), settings_server->disable_networking);
 
     PRINT_DEBUG("steam client init: id: %llu server id: %llu appid: %u port: %u \n", settings_client->get_local_steam_id().ConvertToUint64(), settings_server->get_local_steam_id().ConvertToUint64(), appid, settings_server->get_port());
 
@@ -1433,9 +1433,22 @@ void Steam_Client::RegisterCallback( class CCallbackBase *pCallback, int iCallba
             PRINT_DEBUG("Unknown callback base %i\n", base_callback);
     };
 
+    std::lock_guard<std::recursive_mutex> lock(global_mutex);
     if (isGameServer) {
+        if (callback_results_server == nullptr) {
+            callback_results_server = new SteamCallResults();
+        }
+        if (callbacks_server == nullptr) {
+            callbacks_server = new SteamCallBacks(callback_results_server);
+        }
         callbacks_server->addCallBack(iCallback, pCallback);
     } else {
+        if (callback_results_client == nullptr) {
+            callback_results_client = new SteamCallResults();
+        }
+        if (callbacks_client == nullptr) {
+            callbacks_client = new SteamCallBacks(callback_results_client);
+        }
         callbacks_client->addCallBack(iCallback, pCallback);
     }
 }
@@ -1657,10 +1670,15 @@ void Steam_Client::UnregisterCallback( class CCallbackBase *pCallback)
             PRINT_DEBUG("Unknown callback base %i\n", base_callback);
     };
 
+    std::lock_guard<std::recursive_mutex> lock(global_mutex);
     if (isGameServer) {
-        callbacks_server->rmCallBack(iCallback, pCallback);
+        if (callbacks_server != nullptr) {
+            callbacks_server->rmCallBack(iCallback, pCallback);
+        }
     } else {
-        callbacks_client->rmCallBack(iCallback, pCallback);
+        if (callbacks_client != nullptr) {
+            callbacks_client->rmCallBack(iCallback, pCallback);
+        }
     }
 }
 
@@ -1670,7 +1688,6 @@ void Steam_Client::RegisterCallResult( class CCallbackBase *pCallback, SteamAPIC
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     callback_results_client->addCallBack(hAPICall, pCallback);
     callback_results_server->addCallBack(hAPICall, pCallback);
-    
 }
 
 void Steam_Client::UnregisterCallResult( class CCallbackBase *pCallback, SteamAPICall_t hAPICall)
