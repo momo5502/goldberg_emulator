@@ -27,6 +27,7 @@ struct Avatar_Numbers {
     int smallest;
     int medium;
     int large;
+    std::chrono::steady_clock::time_point last_update_time;
 };
 
 class Steam_Friends : 
@@ -94,39 +95,33 @@ bool isAppIdCompatible(Friend *f)
     return settings->get_local_game_id().AppID() == f->appid();
 }
 
+void generate_avatar_numbers(struct Avatar_Numbers & nums) {
+    std::string small_avatar(32 * 32 * 4, 0);
+    std::string medium_avatar(64 * 64 * 4, 0);
+    std::string large_avatar(184 * 184 * 4, 0);
+
+    nums.smallest = settings->add_image(small_avatar, 32, 32);
+    nums.medium = settings->add_image(medium_avatar, 64, 64);
+    nums.large = settings->add_image(large_avatar, 184, 184);
+    return;
+}
+
 STEAM_CALL_RESULT( AvatarImageLoaded_t )
 struct Avatar_Numbers add_friend_avatars(CSteamID id)
 {
     uint64 steam_id = id.ConvertToUint64();
     auto avatar_ids = avatars.find(steam_id);
     bool generate = true;
-    int base_image = 0;
     struct Avatar_Numbers avatar_numbers;
     if (settings->get_local_steam_id().ConvertToUint64() == steam_id) {
         avatar_numbers.smallest = settings->get_profile_image(k_EAvatarSize32x32);
-        if (avatar_numbers.smallest != 0) {
-            base_image = avatar_numbers.smallest;
-        }
         avatar_numbers.medium = settings->get_profile_image(k_EAvatarSize64x64);
-        if (avatar_numbers.medium != 0) {
-            base_image = avatar_numbers.medium;
-        }
         avatar_numbers.large = settings->get_profile_image(k_EAvatarSize184x184);
-        if (avatar_numbers.large != 0) {
-            base_image = avatar_numbers.large;
-        }
 
-        if (base_image != 0) {
+        if (avatar_numbers.smallest != 0 &&
+            avatar_numbers.medium != 0 &&
+            avatar_numbers.large != 0) {
             generate = false;
-            if (avatar_numbers.smallest == 0) {
-                avatar_numbers.smallest = base_image;
-            }
-            if (avatar_numbers.medium == 0) {
-                avatar_numbers.medium = base_image;
-            }
-            if (avatar_numbers.large == 0) {
-                avatar_numbers.large = base_image;
-            }
         }
 
         if (avatar_ids != avatars.end()) {
@@ -138,23 +133,76 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
             }
         }
     } else {
-        //TODO: get real image data from other peers
-
         if (avatar_ids != avatars.end()) {
-            //TODO: Check for updated entry.
             return avatar_ids->second;
+        } else {
+            // Request avatar data.
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar small request for %"PRIu64".\n", steam_id);
+            Common_Message * msg_ = new Common_Message();
+            msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
+            msg_->set_dest_id(steam_id);
+
+            Image *img = new Image();
+            img->set_type(Image::REQUEST);
+            img->set_img_type(static_cast<Image_ImgTypes>(settings->get_preferred_network_image_type()));
+            img->set_img_width(32);
+            img->set_img_height(32);
+            img->set_img_data("");
+
+            Friend_Avatar *friend_avatar = new Friend_Avatar();
+            friend_avatar->set_allocated_img(img);
+
+            msg_->set_allocated_friend_avatar(friend_avatar);
+            network->sendTo(msg_, true);
+
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar medium request for %"PRIu64".\n", steam_id);
+            msg_ = new Common_Message();
+            msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
+            msg_->set_dest_id(steam_id);
+
+            img = new Image();
+            img->set_type(Image::REQUEST);
+            img->set_img_type(static_cast<Image_ImgTypes>(settings->get_preferred_network_image_type()));
+            img->set_img_width(64);
+            img->set_img_height(64);
+            img->set_img_data("");
+
+            friend_avatar = new Friend_Avatar();
+            friend_avatar->set_allocated_img(img);
+
+            msg_->set_allocated_friend_avatar(friend_avatar);
+            network->sendTo(msg_, true);
+
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar large request for %"PRIu64".\n", steam_id);
+            msg_ = new Common_Message();
+            msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
+            msg_->set_dest_id(steam_id);
+
+            img = new Image();
+            img->set_type(Image::REQUEST);
+            img->set_img_type(static_cast<Image_ImgTypes>(settings->get_preferred_network_image_type()));
+            img->set_img_width(184);
+            img->set_img_height(184);
+            img->set_img_data("");
+
+            friend_avatar = new Friend_Avatar();
+            friend_avatar->set_allocated_img(img);
+
+            msg_->set_allocated_friend_avatar(friend_avatar);
+            network->sendTo(msg_, true);
         }
     }
 
+    PRINT_DEBUG("%s %s %s %"PRIu64".\n",
+                "Steam_Friends::add_friend_avatars ",
+                (generate == true) ? "Generating empty" : "Notifying changed",
+                "avatar image for",
+                steam_id);
     if (generate == true) {
-        std::string small_avatar(32 * 32 * 4, 0);
-        std::string medium_avatar(64 * 64 * 4, 0);
-        std::string large_avatar(184 * 184 * 4, 0);
-
-        avatar_numbers.smallest = settings->add_image(small_avatar, 32, 32);
-        avatar_numbers.medium = settings->add_image(medium_avatar, 64, 64);
-        avatar_numbers.large = settings->add_image(large_avatar, 184, 184);
+        generate_avatar_numbers(avatar_numbers);
     }
+
+    avatar_numbers.last_update_time = std::chrono::steady_clock::now();
 
     avatars[steam_id] = avatar_numbers;
 
@@ -254,6 +302,7 @@ Steam_Friends(Settings* settings, Networking* network, SteamCallResults* callbac
     overlay(overlay)
 {
     this->network->setCallback(CALLBACK_ID_FRIEND, settings->get_local_steam_id(), &Steam_Friends::steam_friends_callback, this);
+    this->network->setCallback(CALLBACK_ID_FRIEND_AVATAR, settings->get_local_steam_id(), &Steam_Friends::steam_friends_callback, this);
     this->network->setCallback(CALLBACK_ID_FRIEND_MESSAGES, settings->get_local_steam_id(), &Steam_Friends::steam_friends_callback, this);
     this->network->setCallback(CALLBACK_ID_USER_STATUS, settings->get_local_steam_id(), &Steam_Friends::steam_friends_callback, this);
     this->run_every_runcb->add(&Steam_Friends::steam_friends_run_every_runcb, this);
@@ -264,6 +313,20 @@ Steam_Friends(Settings* settings, Networking* network, SteamCallResults* callbac
 {
 	//TODO rm network callbacks
 	this->run_every_runcb->remove(&Steam_Friends::steam_friends_run_every_runcb, this);
+
+    for (auto x : avatars) {
+        if (x.first != settings->get_local_steam_id().ConvertToUint64()) {
+            if (x.second.smallest != 0) {
+                settings->remove_image(x.second.smallest);
+            }
+            if (x.second.medium != 0) {
+                settings->remove_image(x.second.medium);
+            }
+            if (x.second.large != 0) {
+                settings->remove_image(x.second.large);
+            }
+        }
+    }
 }
 
 static bool ok_friend_flags(int iFriendFlags)
@@ -704,7 +767,7 @@ int GetSmallFriendAvatar( CSteamID steamIDFriend )
     //IMPORTANT NOTE: don't change friend avatar numbers for the same friend or else some games endlessly allocate stuff.
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar%"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.smallest);
+    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.smallest);
     return numbers.smallest;
 }
 
@@ -714,7 +777,7 @@ int GetMediumFriendAvatar( CSteamID steamIDFriend )
 {
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar%"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.medium);
+    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.medium);
     return numbers.medium;
 }
 
@@ -725,7 +788,7 @@ int GetLargeFriendAvatar( CSteamID steamIDFriend )
 {
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar %"PRIu64" %d.\n", steamIDFriend.ConvertToUint64(), numbers.large);
+    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.large);
     return numbers.large;
 }
 
@@ -1184,105 +1247,7 @@ void RunCallbacks()
     }
 }
 
-void Callback(Common_Message *msg)
-{
-    if (msg->has_low_level()) {
-        if (msg->low_level().type() == Low_Level::DISCONNECT) {
-            PRINT_DEBUG("Steam_Friends Disconnect\n");
-            uint64 id = msg->source_id();
-            auto f = std::find_if(friends.begin(), friends.end(), [&id](Friend const& item) { return item.id() == id; });
-            if (friends.end() != f) {
-                persona_change((uint64)f->id(), k_EPersonaChangeStatus);
-                overlay->FriendDisconnect(*f);
-                friends.erase(f);
-            }
-        }
-
-        if (msg->low_level().type() == Low_Level::CONNECT) {
-            PRINT_DEBUG("Steam_Friends Connect\n");
-            Common_Message msg_;
-            msg_.set_source_id(settings->get_local_steam_id().ConvertToUint64());
-            msg_.set_dest_id(msg->source_id());
-            Friend *f = new Friend(us);
-            f->set_id(settings->get_local_steam_id().ConvertToUint64());
-            f->set_name(settings->get_local_name());
-            f->set_appid(settings->get_local_game_id().AppID());
-            f->set_lobby_id(settings->get_lobby().ConvertToUint64());
-            msg_.set_allocated_friend_(f);
-            network->sendTo(&msg_, true);
-        }
-    }
-
-    if (msg->has_friend_()) {
-        PRINT_DEBUG("Steam_Friends Friend %llu %llu\n", msg->friend_().id(), msg->friend_().lobby_id());
-        Friend *f = find_friend((uint64)msg->friend_().id());
-        if (!f) {
-            if (msg->friend_().id() != settings->get_local_steam_id().ConvertToUint64()) {
-                friends.push_back(msg->friend_());
-                overlay->FriendConnect(msg->friend_());
-                persona_change((uint64)msg->friend_().id(), k_EPersonaChangeName);
-            }
-        } else {
-            std::map<std::string, std::string> map1(f->rich_presence().begin(), f->rich_presence().end());
-            std::map<std::string, std::string> map2(msg->friend_().rich_presence().begin(), msg->friend_().rich_presence().end());
-
-            if (map1 != map2) {
-                //The App ID of the game. This should always be the current game.
-                if (isAppIdCompatible(f)) {
-                    rich_presence_updated((uint64)msg->friend_().id(), (uint64)msg->friend_().appid());
-                }
-            }
-            //TODO: callbacks?
-            *f = msg->friend_();
-        }
-    }
-
-    if (msg->has_friend_messages()) {
-        if (msg->friend_messages().type() == Friend_Messages::LOBBY_INVITE) {
-            PRINT_DEBUG("Steam_Friends Got Lobby Invite\n");
-            Friend *f = find_friend((uint64)msg->source_id());
-            if (f) {
-                LobbyInvite_t data;
-                data.m_ulSteamIDUser = msg->source_id();
-                data.m_ulSteamIDLobby = msg->friend_messages().lobby_id();
-                data.m_ulGameID = f->appid();
-                callbacks->addCBResult(data.k_iCallback, &data, sizeof(data));
-
-                if (overlay->Ready())
-                {
-                    //TODO: the user should accept the invite first but we auto accept it because there's no gui yet
-                    // Then we will handle it !
-                    overlay->SetLobbyInvite(*find_friend(static_cast<uint64>(msg->source_id())), msg->friend_messages().lobby_id());
-                }
-                else
-                {
-                    GameLobbyJoinRequested_t data;
-                    data.m_steamIDLobby = CSteamID((uint64)msg->friend_messages().lobby_id());
-                    data.m_steamIDFriend = CSteamID((uint64)msg->source_id());
-                    callbacks->addCBResult(data.k_iCallback, &data, sizeof(data));
-                }
-            }
-        }
-
-        if (msg->friend_messages().type() == Friend_Messages::GAME_INVITE) {
-            PRINT_DEBUG("Steam_Friends Got Game Invite\n");
-            //TODO: I'm pretty sure that the user should accept the invite before this is posted but we do like above
-            if (overlay->Ready())
-            {
-                // Then we will handle it !
-                overlay->SetRichInvite(*find_friend(static_cast<uint64>(msg->source_id())), msg->friend_messages().connect_str().c_str());
-            }
-            else
-            {
-                std::string const& connect_str = msg->friend_messages().connect_str();
-                GameRichPresenceJoinRequested_t data = {};
-                data.m_steamIDFriend = CSteamID((uint64)msg->source_id());
-                strncpy(data.m_rgchConnect, connect_str.c_str(), k_cchMaxRichPresenceValueLength - 1);
-                callbacks->addCBResult(data.k_iCallback, &data, sizeof(data));
-            }
-        }
-    }
-}
+void Callback(Common_Message *msg);
 
 };
 
