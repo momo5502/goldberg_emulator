@@ -28,67 +28,128 @@
 #define GOLDBERG_CALLBACK_INTERNAL(parent, fname, cb_type) \
     struct GB_CCallbackInternal_ ## fname : private GB_CCallbackInterImp< sizeof(cb_type) > { \
         public: \
-            ~GB_CCallbackInternal_ ## fname () { if (m_nCallbackFlags & k_ECallbackFlagsRegistered) { \
-                                                    bool ready = false; \
-                                                    do { \
-                                                        if (global_mutex.try_lock() == true) { \
-                                                            Steam_Client * client = get_steam_client(); \
-                                                            if (client != NULL) { \
-                                                                get_steam_client()->UnregisterCallback(this); \
-                                                                ready = true; \
-                                                            } \
-                                                            global_mutex.unlock(); \
-                                                        } \
-                                                    } while (!ready); \
-                                                 } }\
-            GB_CCallbackInternal_ ## fname () {} \
-            GB_CCallbackInternal_ ## fname ( const GB_CCallbackInternal_ ## fname & ) {} \
-            GB_CCallbackInternal_ ## fname & operator=(const GB_CCallbackInternal_ ## fname &) { return *this; } \
-        private: \
+            GB_CCallbackInternal_ ## fname () { \
+                PRINT_DEBUG("GB_CCallbackInternal_%s::%s %s 0x%p.\n", \
+                            #fname, \
+                            #fname, \
+                            "Default constructor", \
+                            this); \
+                this->reg_thread_has_run = false; \
+                std::thread th = std::thread(GB_CCallbackInterImp::_register, this, cb_type::k_iCallback); \
+                th.detach(); \
+            } \
+            GB_CCallbackInternal_ ## fname ( const GB_CCallbackInternal_ ## fname & a ) { \
+                PRINT_DEBUG("GB_CCallbackInternal_%s::%s %s 0x%p.\n", \
+                            #fname, \
+                            #fname, \
+                            "Copy constructor", \
+                            this); \
+                this->reg_thread_has_run = false; \
+                std::thread th = std::thread(GB_CCallbackInterImp::_register, this, cb_type::k_iCallback); \
+                th.detach(); \
+            } \
+            GB_CCallbackInternal_ ## fname & operator=(const GB_CCallbackInternal_ ## fname &) { \
+                PRINT_DEBUG("GB_CCallbackInternal_%s::%s %s 0x%p.\n", \
+                            #fname, \
+                            #fname, \
+                            "Assignment = operator", \
+                            this); \
+                return *this; \
+            } \
             virtual void Run(void *callback) { \
-                if (!(m_nCallbackFlags & k_ECallbackFlagsRegistered)) { \
-                   bool ready = false; \
-                   do { \
-                       if (global_mutex.try_lock() == true) { \
-                           Steam_Client * client = get_steam_client(); \
-                           if (client != NULL) { \
-                               client->RegisterCallback(this, cb_type::k_iCallback); \
-                               ready = true; \
-                           } \
-                           global_mutex.unlock(); \
-                       } \
-                   } while (!ready); \
-                } \
+                PRINT_DEBUG("GB_CCallbackInternal_%s::Run 0x%p Callback argument: 0x%p.\n", \
+                            #fname, \
+                            this, \
+                            callback); \
                 if (m_nCallbackFlags & k_ECallbackFlagsRegistered) { \
                     parent *obj = reinterpret_cast<parent*>(reinterpret_cast<char*>(this) - offsetof(parent, m_steamcallback_ ## fname)); \
                     obj->fname(reinterpret_cast<cb_type*>(callback)); \
                 } \
-        } \
-    } m_steamcallback_ ## fname ; void fname( cb_type *callback )
+            } \
+        private: \
+    } m_steamcallback_ ## fname ; void fname(cb_type *callback )
 
 template<int sizeof_cb_type>
 class GB_CCallbackInterImp : protected CCallbackBase
 {
     public:
-        virtual ~GB_CCallbackInterImp() { if (m_nCallbackFlags & k_ECallbackFlagsRegistered) {
-                                              bool ready = false;
-                                              do {
-                                                  if (global_mutex.try_lock() == true) {
-                                                      Steam_Client * client = get_steam_client();
-                                                      if (client != NULL) {
-                                                          get_steam_client()->UnregisterCallback(this);
-                                                          ready = true;
-                                                      }
-                                                      global_mutex.unlock();
-                                                  }
-                                              } while (!ready);
-                                          } }
-        void SetGameserverFlag() { m_nCallbackFlags |= k_ECallbackFlagsGameServer; }
+        virtual ~GB_CCallbackInterImp() {
+            _unregister(this);
+            return;
+        }
+        void SetGameserverFlag() {
+            m_nCallbackFlags |= k_ECallbackFlagsGameServer;
+            return;
+        }
     protected:
         friend class CCallbackMgr;
+        std::atomic<bool> reg_thread_has_run;
         virtual void Run(void *callback) = 0;
-        virtual void Run( void *callback, bool io_failure, SteamAPICall_t api_fp) { Run(callback); }
-        virtual int GetCallbackSizeBytes() { return sizeof_cb_type; }
+        virtual void Run(void *callback, bool io_failure, SteamAPICall_t api_fp) {
+            Run(callback);
+            return;
+        }
+        virtual int GetCallbackSizeBytes() {
+            return sizeof_cb_type;
+        }
+        static void _register(void * arg, int callback) {
+            GB_CCallbackInterImp * gb = (GB_CCallbackInterImp *)arg;
+            if (gb != NULL) {
+                PRINT_DEBUG("GB_CCallbackInterImp::_register Begin registration thread for 0x%p callback %d.\n",
+                            gb,
+                            callback);
+                if (!(gb->m_nCallbackFlags & k_ECallbackFlagsRegistered)) {
+                    bool ready = false;
+                    do {
+                        if (global_mutex.try_lock() == true) {
+                            Steam_Client * client = try_get_steam_client();
+                            if (client != NULL) {
+                                client->RegisterCallback(gb, callback);
+                                ready = true;
+                                gb->reg_thread_has_run = true;
+                                PRINT_DEBUG("GB_CCallbackInterImp::_register Registration complete for 0x%p callback %d.\n",
+                                            gb,
+                                            callback);
+                            }
+                            global_mutex.unlock();
+                        }
+                    } while (!ready);
+                }
+                PRINT_DEBUG("GB_CCallbackInterImp::_register Exiting registration thread for 0x%p callback %d.\n",
+                            gb,
+                            callback);
+            }
+            return;
+        }
+        static void _unregister(void * arg) {
+            GB_CCallbackInterImp * gb = (GB_CCallbackInterImp *)arg;
+            if (gb != NULL) {
+                PRINT_DEBUG("GB_CCallbackInterImp::_unregister Begin deregistration thread for 0x%p.\n",
+                            gb);
+                bool can_dereg = false;
+                do {
+                    can_dereg = gb->reg_thread_has_run;
+                } while (!can_dereg);
+                if (gb->m_nCallbackFlags & k_ECallbackFlagsRegistered) {
+                    bool ready = false;
+                    do {
+                        if (global_mutex.try_lock() == true) {
+                            Steam_Client * client = try_get_steam_client();
+                            if (client != NULL) {
+                                client->UnregisterCallback(gb);
+                                ready = true;
+                                PRINT_DEBUG("GB_CCallbackInterImp::_unregister Deregistration complete for 0x%p.\n",
+                                            gb);
+                            }
+                            global_mutex.unlock();
+                        }
+                    } while (!ready);
+                    PRINT_DEBUG("GB_CCallbackInterImp::_unregister Exiting deregistration thread for 0x%p.\n",
+                                gb);
+                }
+            }
+            return;
+        }
 };
 
 Steam_Client *get_steam_client();
