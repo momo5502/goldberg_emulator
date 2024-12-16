@@ -393,10 +393,14 @@ void Settings::background_monitor() {
                                         PRINT_DEBUG("%s.\n", "Settings::background_monitor Got NOTIFY_AVATAR_IMAGE task");
 
                                         if (client != NULL && client->steam_friends != NULL) {
-                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize32x32);
-                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize64x64);
-                                            client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize184x184);
-                                            task_done = true;
+                                            if (disable_overlay == true ||
+                                                (client->steam_overlay != NULL &&
+                                                 client->steam_overlay->RegisteredInternalCallbacks() == true)) {
+                                                client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize32x32);
+                                                client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize64x64);
+                                                client->steam_friends->GetFriendAvatar(this->steam_id, k_EAvatarSize184x184);
+                                                task_done = true;
+                                            }
                                         }
                                     }
                                     break;
