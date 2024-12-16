@@ -66,8 +66,15 @@
                     obj->fname(reinterpret_cast<cb_type*>(callback)); \
                 } \
             } \
+            bool isRegistered() { \
+                return ( m_nCallbackFlags & k_ECallbackFlagsRegistered ); \
+            } \
         private: \
-    } m_steamcallback_ ## fname ; void fname(cb_type *callback )
+    } m_steamcallback_ ## fname ; \
+    void fname(cb_type *callback) ; \
+    bool cb_type ## _is_registered() { \
+        return m_steamcallback_ ## fname.isRegistered(); \
+    }
 
 template<int sizeof_cb_type>
 class GB_CCallbackInterImp : protected CCallbackBase
