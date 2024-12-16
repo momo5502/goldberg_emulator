@@ -226,7 +226,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
        ail_data.m_iImage = avatar_numbers.smallest;
        ail_data.m_iWide = width;
        ail_data.m_iTall = height;
-       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       callbacks->addCBResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
        sent_ail = true;
     }
 
@@ -244,7 +244,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
        ail_data.m_iImage = avatar_numbers.medium;
        ail_data.m_iWide = width;
        ail_data.m_iTall = height;
-       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       callbacks->addCBResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
        sent_ail = true;
     }
 
@@ -262,7 +262,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
        ail_data.m_iImage = avatar_numbers.large;
        ail_data.m_iWide = width;
        ail_data.m_iTall = height;
-       callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
+       callbacks->addCBResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
        sent_ail = true;
     }
     if (sent_ail) {

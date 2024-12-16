@@ -244,7 +244,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                     ail_data.m_iImage = ref;
                                     ail_data.m_iWide = width;
                                     ail_data.m_iTall = height;
-                                    callback_results->addCallResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));      
+                                    callbacks->addCBResult(ail_data.k_iCallback, &ail_data, sizeof(ail_data));
                                     persona_change(userID, k_EPersonaChangeAvatar);
                                 }
                             }
