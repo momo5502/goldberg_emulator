@@ -77,7 +77,7 @@ struct Settings_Background_Task {
 class Settings {
     CSteamID steam_id;
     CGameID game_id;
-    std::string name, language;
+    std::string name, language, ui_notification_position;
     CSteamID lobby_id;
     uint32 preferred_network_image_type;
     bool background_thread_exit;
@@ -209,6 +209,10 @@ public:
     void set_show_achievement_desc_on_unlock(bool set) { this->showAchievementDescOnUnlock = set; }
     bool get_show_achievement_hidden_unearned() { return showAchievementHiddenUnearned; }
     void set_show_achievement_hidden_unearned(bool set) { this->showAchievementHiddenUnearned = set; }
+
+    //UI
+    std::string get_ui_notification_position();
+    void set_ui_notification_position(char * pos);
 };
 
 #endif

@@ -219,6 +219,8 @@ inline std::string ascii_to_lowercase(std::string data) {
 
 #define DEFAULT_LANGUAGE "english"
 
+#define DEFAULT_UI_NOTIFICATION_POSITION "top right"
+
 #define LOBBY_CONNECT_APPID ((uint32)-2)
 
 #define FRIEND_AVATAR_MAX_IMAGE_LENGTH (5 * 1024 * 1024)

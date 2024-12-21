@@ -45,6 +45,8 @@ Settings::Settings(CSteamID steam_id, CGameID game_id, std::string name, std::st
         this->name = this->name + " ";
     }
 
+    this->ui_notification_position = "";
+
     auto lang = sanitize(language);
     std::transform(lang.begin(), lang.end(), lang.begin(), ::tolower);
     lang.erase(std::remove(lang.begin(), lang.end(), ' '), lang.end());
@@ -475,4 +477,25 @@ void Settings::set_preferred_network_image_type(int new_type)
             break;
     };
     return;
+}
+
+std::string Settings::get_ui_notification_position()
+{
+    return this->ui_notification_position;
+}
+
+void Settings::set_ui_notification_position(char * pos)
+{
+    PRINT_DEBUG("%s 0x%p.\n",
+                "Settings::set_ui_notification_position",
+                pos);
+    if (pos != NULL) {
+        size_t len = strlen(pos);
+        if (len > 0) {
+            this->ui_notification_position = "";
+            for (size_t x = 0; x < len && pos[x] != '\0'; x++) {
+                this->ui_notification_position += pos[x];
+            }
+        }
+    }
 }
