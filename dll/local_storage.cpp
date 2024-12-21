@@ -273,12 +273,22 @@ bool Local_Storage::file_exists(std::string folder, std::string file)
     return false;
 }
 
+bool Local_Storage::data_settings_exists(std::string file)
+{
+    return false;
+}
+
 unsigned int Local_Storage::file_size(std::string folder, std::string file)
 {
     return 0;
 }
 
 bool Local_Storage::file_delete(std::string folder, std::string file)
+{
+    return false;
+}
+
+bool Local_Storage::delete_data_settings(std::string file)
 {
     return false;
 }
