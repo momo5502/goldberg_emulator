@@ -359,7 +359,7 @@ public:
     void SetNotificationInset(int nHorizontalInset, int nVerticalInset) {}
     void SetupOverlay() {}
     void UnSetupOverlay() {}
-    bool RegisteredInternalCallbacks() {}
+    bool RegisteredInternalCallbacks() const { return true; }
 
     void HookReady(bool ready) {}
 
