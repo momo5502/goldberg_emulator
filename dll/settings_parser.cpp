@@ -260,6 +260,13 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
         local_storage->store_data_settings("language.txt", language, strlen(language));
     }
 
+    // UI Notification Position.
+    char notification_position[32] = {};
+    if (local_storage->get_data_settings("ui_notification_position.txt", notification_position, sizeof(notification_position) - 1) <= 0) {
+        strcpy(notification_position, DEFAULT_UI_NOTIFICATION_POSITION);
+        local_storage->store_data_settings("ui_notification_position.txt", notification_position, strlen(notification_position));
+    }
+
     // Steam ID
     char array_steam_id[32] = {};
     CSteamID user_id;
@@ -394,6 +401,12 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
                     language[len] = 0;
                     warn_forced = true;
                 }
+            } else if (p == "force_ui_notification_position.txt") {
+                int len = Local_Storage::get_file_data(steam_settings_path + "force_ui_notification_position.txt", notification_position, sizeof(notification_position) - 1);
+                if (len > 0) {
+                    notification_position[len] = 0;
+                    warn_forced = true;
+                }
             } else if (p == "force_steamid.txt") {
                 char steam_id_text[32] = {};
                 if (Local_Storage::get_file_data(steam_settings_path + "force_steamid.txt", steam_id_text, sizeof(steam_id_text) - 1) > 0) {
@@ -450,6 +463,8 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
     settings_client->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
     settings_server->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
+    settings_client->set_ui_notification_position(notification_position);
+    settings_server->set_ui_notification_position(notification_position);
     if (profile_small.data.length() > 0 && profile_small.width > 0 && profile_small.height > 0) {
         settings_client->set_profile_image(k_EAvatarSize32x32, &profile_small);
         settings_server->set_profile_image(k_EAvatarSize32x32, &profile_small);
@@ -729,9 +744,11 @@ void save_global_settings(Local_Storage *local_storage, Settings * client_settin
     if ((local_storage != nullptr) && (client_settings != nullptr)) {
         std::string name = client_settings->get_local_name();
         std::string language = client_settings->get_language();
+        std::string ui_notif_pos = client_settings->get_ui_notification_position();
 
         local_storage->store_data_settings("account_name.txt", (char*)name.c_str(), name.length());
         local_storage->store_data_settings("language.txt", (char*)language.c_str(), language.length());
+        local_storage->store_data_settings("ui_notification_position.txt", (char*)ui_notif_pos.c_str(), ui_notif_pos.length());
         if (client_settings->get_show_achievement_desc_on_unlock()) {
             if (local_storage->data_settings_exists("enable_achievement_desc_on_unlock.txt") != true) {
                 local_storage->store_data_settings("enable_achievement_desc_on_unlock.txt", " ", sizeof(" "));
