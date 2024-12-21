@@ -189,7 +189,7 @@ bool Steam_Overlay::LoadProfileImage(const CSteamID & id, const int eAvatarSize)
 }
 
 bool Steam_Overlay::LoadProfileImage(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images) {
-    PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %"PRIu64" size %d.\n", id.ConvertToUint64(), eAvatarSize);
+    PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %" PRIu64 " size %d.\n", id.ConvertToUint64(), eAvatarSize);
 
     bool ret = false;
     Profile_Image * image = NULL;
@@ -212,7 +212,7 @@ bool Steam_Overlay::LoadProfileImage(const CSteamID & id, const int eAvatarSize,
                 width > 0 &&
                 height > 0) {
 
-                PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %"PRIu64" size %d image_handle %d width %d height %d.\n",
+                PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %" PRIu64 " size %d image_handle %d width %d height %d.\n",
                             id.ConvertToUint64(), eAvatarSize, image_handle, width, height);
 
                 if (image->raw_image != NULL) {
@@ -234,16 +234,16 @@ bool Steam_Overlay::LoadProfileImage(const CSteamID & id, const int eAvatarSize,
                     } else {
                         delete raw_image;
                         raw_image = NULL;
-                        PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %"PRIu64" size %d could not get pixel data.\n",
+                        PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %" PRIu64 " size %d could not get pixel data.\n",
                                     id.ConvertToUint64(), eAvatarSize);
                     }
                 }
             } else {
-                PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %"PRIu64" size %d pixel data has invalid size.\n",
+                PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %" PRIu64 " size %d pixel data has invalid size.\n",
                             id.ConvertToUint64(), eAvatarSize);
             }
         } else {
-            PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %"PRIu64" size %d profile pixel data not loaded.\n",
+            PRINT_DEBUG("Steam_Overlay::LoadProfileImage() profile id %" PRIu64 " size %d profile pixel data not loaded.\n",
                         id.ConvertToUint64(), eAvatarSize);
         }
     }
@@ -265,7 +265,7 @@ void Steam_Overlay::DestroyProfileImage(const CSteamID & id, const int eAvatarSi
 }
 
 void Steam_Overlay::DestroyProfileImage(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images) {
-    PRINT_DEBUG("Steam_Overlay::DestroyProfileImage() %"PRIu64" size %d.\n", id.ConvertToUint64(), eAvatarSize);
+    PRINT_DEBUG("Steam_Overlay::DestroyProfileImage() %" PRIu64 " size %d.\n", id.ConvertToUint64(), eAvatarSize);
 
     Profile_Image * image = NULL;
     std::lock_guard<std::recursive_mutex> lock(overlay_mutex);
@@ -304,7 +304,7 @@ bool Steam_Overlay::CreateProfileImageResource(const CSteamID & id, const int eA
 }
 
 bool Steam_Overlay::CreateProfileImageResource(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images) {
-    PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() %"PRIu64" size %d.\n", id.ConvertToUint64(), eAvatarSize);
+    PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() %" PRIu64 " size %d.\n", id.ConvertToUint64(), eAvatarSize);
 
     bool ret = false;
     Profile_Image * image = NULL;
@@ -327,16 +327,16 @@ bool Steam_Overlay::CreateProfileImageResource(const CSteamID & id, const int eA
             std::shared_ptr<uint64_t> test2;
             test2 = test.lock();
             if (!test2) {
-                PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() Unable to create resource for profile id %"PRIu64" size %d.\n",
+                PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() Unable to create resource for profile id %" PRIu64 " size %d.\n",
                             id.ConvertToUint64(), eAvatarSize);
             } else {
                 image->image_resource = test;
                 ret = true;
-                PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() created resource for profile id %"PRIu64" size %d -> %"PRIu64".\n",
+                PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() created resource for profile id %" PRIu64 " size %d -> %" PRIu64 ".\n",
                             id.ConvertToUint64(), eAvatarSize, *test2);
             }
         } else {
-            PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() invalid raw data for profile id %"PRIu64" size %d.\n",
+            PRINT_DEBUG("Steam_Overlay::CreateProfileImageResource() invalid raw data for profile id %" PRIu64 " size %d.\n",
                         id.ConvertToUint64(), eAvatarSize);
         }
     }
@@ -359,7 +359,7 @@ void Steam_Overlay::DestroyProfileImageResource(const CSteamID & id, const int e
 
 void Steam_Overlay::DestroyProfileImageResource(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images)
 {
-    PRINT_DEBUG("Steam_Overlay::DestroyProfileImageResource() %"PRIu64" size %d.\n", id.ConvertToUint64(), eAvatarSize);
+    PRINT_DEBUG("Steam_Overlay::DestroyProfileImageResource() %" PRIu64 " size %d.\n", id.ConvertToUint64(), eAvatarSize);
 
     Profile_Image * image = NULL;
     std::lock_guard<std::recursive_mutex> lock(overlay_mutex);
@@ -2093,14 +2093,14 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                             if (loadType == 0x0) {
                                 if (LoadProfileImage(userID, eAvatarSize) == true) {
                                     reload = true;
-                                    PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                    PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                                 "Steam_Overlay::display_imgui_image Got avatar image size",
                                                 eAvatarSize,
                                                 "for user",
                                                 userID.ConvertToUint64(),
                                                 ". Load OK.");
                                 } else{
-                                    PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                    PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                                 "Steam_Overlay::display_imgui_image Unable to get avatar image size",
                                                 eAvatarSize,
                                                 "for user",
@@ -2125,7 +2125,7 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                                 };
 
                                 if (type != 0x0) {
-                                    PRINT_DEBUG("%s %"PRIu64" %s %d.\n",
+                                    PRINT_DEBUG("%s %" PRIu64 " %s %d.\n",
                                                 "Steam_Overlay::display_imgui_image Queuing Lazy Load avatar image for",
                                                 userID.ConvertToUint64(),
                                                 "size",
@@ -2180,14 +2180,14 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
 
                                 if (CreateProfileImageResource(userID, eAvatarSize) == true) {
                                     reload = true;
-                                    PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                    PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                                 "Steam_Overlay::display_imgui_image Got profile image size",
                                                 eAvatarSize,
                                                 "for user",
                                                 userID.ConvertToUint64(),
                                                 ". Resource OK.");
                                 } else {
-                                    PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                    PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                                 "Steam_Overlay::display_imgui_image Unable to get avatar image size",
                                                 eAvatarSize,
                                                 "for user",
@@ -2239,7 +2239,7 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                                     ret = 1;
                                 }
                             } else {
-                                PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                             "Steam_Overlay::display_imgui_image Unable to get avatar image size",
                                             eAvatarSize,
                                             "for user",
@@ -2248,7 +2248,7 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                             }
                         } else {
                             if (loadType == 0x0) {
-                                PRINT_DEBUG("%s %d %s %"PRIu64" %s\n",
+                                PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                             "Steam_Overlay::display_imgui_image Unable to display avatar image size",
                                             eAvatarSize,
                                             "for user",
@@ -2319,7 +2319,7 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                                                     imageData);
                                         _renderer->ReleaseImageResource(test);
                                     } else {
-                                        PRINT_DEBUG("Steam_Overlay::display_imgui_image created resource for custom image %p -> %"PRIu64".\n",
+                                        PRINT_DEBUG("Steam_Overlay::display_imgui_image created resource for custom image %p -> %" PRIu64 ".\n",
                                                     imageData,
                                                     *test2);
                                         result->second.image_data.image_resource = test;
@@ -2458,7 +2458,7 @@ void Steam_Overlay::OverlayProc()
                                                      k_EAvatarSize32x32,
                                                      0x1) != 1) {
                                 ImGui::ColorButton("test", ImVec4(255, 0, 0, 255), 0, ImVec2(32 * 0.4f, 32 * 0.4f));
-                                PRINT_DEBUG("%s %"PRIu64".\n",
+                                PRINT_DEBUG("%s %" PRIu64 ".\n",
                                             "SteamOverlay::OverlayProc Failed to display friend avatar for",
                                             (uint64)i.first.id());
                             }
@@ -2785,7 +2785,7 @@ void Steam_Overlay::OverlayProc()
                                                 if (Local_Storage::is_directory(future_path) == true) {
                                                     current_path.clear();
                                                     show_drive_list = false;
-                                                    PRINT_DEBUG("%s %s %"PRI_ZU" %"PRI_ZU".\n", "SteamOverlay::OverlayProc Next directory will be", future_path.c_str(), x.first.find_last_of((char)PATH_SEPARATOR), x.first.length());
+                                                    PRINT_DEBUG("%s %s %" PRI_ZU " %" PRI_ZU ".\n", "SteamOverlay::OverlayProc Next directory will be", future_path.c_str(), x.first.find_last_of((char)PATH_SEPARATOR), x.first.length());
                                                 } else {
                                                     future_path.clear();
                                                 }
@@ -2973,7 +2973,7 @@ void Steam_Overlay::OverlayProc()
                                                 }
                                                 id.width = temp_pi.width;
                                                 id.height = temp_pi.height;
-                                                PRINT_DEBUG("%s %d %s %"PRIu64".\n",
+                                                PRINT_DEBUG("%s %d %s %" PRIu64 ".\n",
                                                             "SteamOverlay::OverlayProc Attempting to set new avatar image size",
                                                             new_image_size,
                                                             "for profile",
@@ -3238,7 +3238,7 @@ void Steam_Overlay::RunCallbacks()
                             break;
                     };
                     uint32_t retry = 0x0;
-                    PRINT_DEBUG("%s %"PRIu64".\n",
+                    PRINT_DEBUG("%s %" PRIu64 ".\n",
                                 "Steam_Overlay::RunCallbacks Lazy loading Friend Avatars for",
                                 x.first.ConvertToUint64());
                     if (x.second & 0x1) {
@@ -3504,7 +3504,7 @@ void Steam_Overlay::OnAvatarImageLoaded(AvatarImageLoaded_t *pParam)
 {
     if (pParam != NULL) {
         if (pParam->m_steamID != k_steamIDNil) {
-            PRINT_DEBUG("%s %"PRIu64". %s %d.\n",
+            PRINT_DEBUG("%s %" PRIu64 ". %s %d.\n",
                         "Steam_Overlay::OnAvatarImageLoaded Destroy avatar images for",
                         pParam->m_steamID.ConvertToUint64(),
                         "New reference",

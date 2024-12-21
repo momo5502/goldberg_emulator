@@ -25,6 +25,15 @@
 #define STEAMCLIENT_API static
 #endif
 
+Steam_Client *get_steam_client();
+bool steamclient_has_ipv6_functions();
+Steam_Client *try_get_steam_client();
+
+HSteamUser flat_hsteamuser();
+HSteamPipe flat_hsteampipe();
+HSteamUser flat_gs_hsteamuser();
+HSteamPipe flat_gs_hsteampipe();
+
 #define GOLDBERG_CALLBACK_INTERNAL(parent, fname, cb_type) \
     struct GB_CCallbackInternal_ ## fname : private GB_CCallbackInterImp< sizeof(cb_type) > { \
         public: \
@@ -158,12 +167,3 @@ class GB_CCallbackInterImp : protected CCallbackBase
             return;
         }
 };
-
-Steam_Client *get_steam_client();
-bool steamclient_has_ipv6_functions();
-Steam_Client *try_get_steam_client();
-
-HSteamUser flat_hsteamuser();
-HSteamPipe flat_hsteampipe();
-HSteamUser flat_gs_hsteamuser();
-HSteamPipe flat_gs_hsteampipe();

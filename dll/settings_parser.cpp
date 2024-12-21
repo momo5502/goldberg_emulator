@@ -469,19 +469,19 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
         settings_client->set_profile_image(k_EAvatarSize32x32, &profile_small);
         settings_server->set_profile_image(k_EAvatarSize32x32, &profile_small);
     } else {
-        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Small user avatar image not defined.", profile_small.data.length(), profile_small.width, profile_small.height);
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Small user avatar image not defined.", profile_small.data.length(), profile_small.width, profile_small.height);
     }
     if (profile_medium.data.length() > 0 && profile_medium.width > 0 && profile_medium.height > 0) {
         settings_client->set_profile_image(k_EAvatarSize64x64, &profile_medium);
         settings_server->set_profile_image(k_EAvatarSize64x64, &profile_medium);
     } else {
-        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Medium user avatar image not defined.", profile_medium.data.length(), profile_medium.width, profile_medium.height);
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Medium user avatar image not defined.", profile_medium.data.length(), profile_medium.width, profile_medium.height);
     }
     if (profile_large.data.length() > 0 && profile_large.width > 0 && profile_large.height > 0) {
         settings_client->set_profile_image(k_EAvatarSize184x184, &profile_large);
         settings_server->set_profile_image(k_EAvatarSize184x184, &profile_large);
     } else {
-        PRINT_DEBUG("%s %"PRI_ZU" %d %d\n", "Large user avatar image not defined.", profile_large.data.length(), profile_large.width, profile_large.height);
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Large user avatar image not defined.", profile_large.data.length(), profile_large.width, profile_large.height);
     }
 
     {

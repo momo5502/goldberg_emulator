@@ -137,7 +137,7 @@ void Steam_Friends::Callback(Common_Message *msg)
         Friend *f = find_friend(userID.ConvertToUint64());
         if (f) {
             if (msg->friend_avatar().img().type() == Image::NOTIFY) {
-                PRINT_DEBUG("%s %"PRIu64".\n", "Steam_Friends::Callback Got Friend_Avatar NOTIFY for", userID.ConvertToUint64());
+                PRINT_DEBUG("%s %" PRIu64 ".\n", "Steam_Friends::Callback Got Friend_Avatar NOTIFY for", userID.ConvertToUint64());
 
                 std::string raw_image = msg->friend_avatar().img().img_data();
                 if (raw_image.length() > 0 && raw_image.length() < FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
@@ -173,10 +173,10 @@ void Steam_Friends::Callback(Common_Message *msg)
                         }
 
                         if (eAvatarSize != k_EAvatarSizeMAX) {
-                            
+
                             switch (img_type) {
                                 case Image::RAW:
-                                    PRINT_DEBUG("%s %"PRIu64" %s %d %s.\n",
+                                    PRINT_DEBUG("%s %" PRIu64 " %s %d %s.\n",
                                                 "Steam_Friends::Callback Got Friend_Avatar NOTIFY for",
                                                 userID.ConvertToUint64(),
                                                 "size",
@@ -188,7 +188,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                         std::string convert;
                                         int n_width = 0;
                                         int n_height = 0;
-                                        PRINT_DEBUG("%s %"PRIu64" %s %d %s.\n",
+                                        PRINT_DEBUG("%s %" PRIu64 " %s %d %s.\n",
                                                     "Steam_Friends::Callback Got Friend_Avatar NOTIFY for",
                                                     userID.ConvertToUint64(),
                                                     "size",
@@ -208,7 +208,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                         std::string convert;
                                         int n_width = 0;
                                         int n_height = 0;
-                                        PRINT_DEBUG("%s %"PRIu64" %s %d %s.\n",
+                                        PRINT_DEBUG("%s %" PRIu64 " %s %d %s.\n",
                                                     "Steam_Friends::Callback Got Friend_Avatar NOTIFY for",
                                                     userID.ConvertToUint64(),
                                                     "size",
@@ -225,7 +225,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                     break;
                                 default:
                                     raw_image.clear();
-                                    PRINT_DEBUG("%s %"PRIu64" %s %d %s %d.\n",
+                                    PRINT_DEBUG("%s %" PRIu64 " %s %d %s %d.\n",
                                                 "Steam_Friends::Callback Got Friend_Avatar NOTIFY for",
                                                 userID.ConvertToUint64(),
                                                 "size",
@@ -256,7 +256,7 @@ void Steam_Friends::Callback(Common_Message *msg)
             if (msg->friend_avatar().img().type() == Image::REQUEST) {
                 CSteamID requestID((uint64)msg->dest_id());
                 if (settings->get_local_steam_id() == requestID) {
-                    PRINT_DEBUG("%s %"PRIu64".\n", "Steam_Friends::Callback Got Friend_Avatar REQUEST from", userID.ConvertToUint64());
+                    PRINT_DEBUG("%s %" PRIu64 ".\n", "Steam_Friends::Callback Got Friend_Avatar REQUEST from", userID.ConvertToUint64());
 
                     uint32_t width = (uint32_t)msg->friend_avatar().img().img_width();
                     uint32_t height = (uint32_t)msg->friend_avatar().img().img_height();
@@ -289,7 +289,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                                              raw_image,
                                                              (n_width * n_height * sizeof(uint32))) == true) {
                                     uint32_t img_type = (uint32_t)msg->friend_avatar().img().img_type();
-                                    PRINT_DEBUG("%s %"PRIu64" %s %d %s %d.\n",
+                                    PRINT_DEBUG("%s %" PRIu64 " %s %d %s %d.\n",
                                                 "Steam_Friends::Callback Got Friend_Avatar REQUEST from",
                                                 userID.ConvertToUint64(),
                                                 "for image type",
@@ -302,7 +302,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                         pixdata = convert_raw_uint8_to_png_std_string(raw_image, n_width, n_height, 4);
                                         if (pixdata.length() <= 0 || pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
                                             if (pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s %"PRI_ZU" %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s %" PRI_ZU " %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for PNG image size",
@@ -311,7 +311,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                                             pixdata.length() - FRIEND_AVATAR_MAX_IMAGE_LENGTH,
                                                             "bytes");
                                             } else {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for PNG image size",
@@ -330,7 +330,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                         if (pixdata.length() <= 0 || pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
                                             // Try again using RAW.
                                             if (pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s %"PRI_ZU" %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s %" PRI_ZU " %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for JPG image size",
@@ -339,7 +339,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                                             pixdata.length() - FRIEND_AVATAR_MAX_IMAGE_LENGTH,
                                                             "bytes");
                                             } else {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for JPG image size",
@@ -359,7 +359,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                         if (pixdata.length() <= 0 || pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
                                             // No more attempts.
                                             if (pixdata.length() >= FRIEND_AVATAR_MAX_IMAGE_LENGTH) {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s %"PRI_ZU" %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s %" PRI_ZU " %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for RAW image size",
@@ -368,7 +368,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                                             pixdata.length() - FRIEND_AVATAR_MAX_IMAGE_LENGTH,
                                                             "bytes");
                                             } else {
-                                                PRINT_DEBUG("%s %"PRIu64" %s %d. %s.\n",
+                                                PRINT_DEBUG("%s %" PRIu64 " %s %d. %s.\n",
                                                             "Steam_Friends::Callback Cannot complete Friend_Avatar REQUEST from",
                                                             userID.ConvertToUint64(),
                                                             "for RAW image size",
@@ -381,7 +381,7 @@ void Steam_Friends::Callback(Common_Message *msg)
 
                                     if (img_type != Image::PNG && img_type != Image::JPG && img_type != Image::RAW) {
                                         pixdata.clear();
-                                        PRINT_DEBUG("%s %"PRIu64" %s %d %s %d.\n",
+                                        PRINT_DEBUG("%s %" PRIu64 " %s %d %s %d.\n",
                                                     "Steam_Friends::Callback Got Friend_Avatar REQUEST from",
                                                     userID.ConvertToUint64(),
                                                     "for unsupported image type",
@@ -413,7 +413,7 @@ void Steam_Friends::Callback(Common_Message *msg)
                                     }
                                 }
 
-                                delete raw_image;
+                                delete [] raw_image;
                                 raw_image = NULL;
                             }
                         }

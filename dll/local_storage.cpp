@@ -34,7 +34,7 @@ struct File_Data {
     std::string name;
 };
 
-std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> & in) {
+std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> in) {
     std::string out;
 
     for (auto i : in) {
@@ -233,7 +233,7 @@ void Local_Storage::setAppId(uint32 appid)
 
 }
 
-int Local_Storage::store_file_data(std::string folder, std::string file, char *data, unsigned int length)
+int Local_Storage::store_file_data(std::string folder, std::string file, const char *data, unsigned int length)
 {
     return -1;
 }
@@ -243,7 +243,7 @@ int Local_Storage::store_data(std::string folder, std::string file, char *data, 
     return -1;
 }
 
-int Local_Storage::store_data_settings(std::string file, char *data, unsigned int length)
+int Local_Storage::store_data_settings(std::string file, const char *data, unsigned int length)
 {
     return -1;
 }
@@ -777,7 +777,7 @@ void Local_Storage::setAppId(uint32 appid)
     this->appid = std::to_string(appid) + PATH_SEPARATOR;
 }
 
-int Local_Storage::store_file_data(std::string folder, std::string file, char *data, unsigned int length)
+int Local_Storage::store_file_data(std::string folder, std::string file, const char *data, unsigned int length)
 {
     if (folder.back() != *PATH_SEPARATOR) {
         folder.append(PATH_SEPARATOR);
@@ -836,7 +836,7 @@ int Local_Storage::store_data(std::string folder, std::string file, char *data, 
     return store_file_data(save_directory + appid + folder, file, data, length);
 }
 
-int Local_Storage::store_data_settings(std::string file, char *data, unsigned int length)
+int Local_Storage::store_data_settings(std::string file, const char *data, unsigned int length)
 {
     return store_file_data(get_global_settings_path(), file, data, length);
 }

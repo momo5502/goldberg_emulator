@@ -141,6 +141,12 @@ inline void reset_LastError()
     #include <utime.h>
 
     #include <inttypes.h>
+    #ifndef PRIu64
+        #define PRIu64 "I64u"
+    #endif
+    #ifndef PRIuPTR
+        #define PRIuPTR "Iu"
+    #endif
     #define PRI_ZU "zu"
 
     #define PATH_MAX_STRING_SIZE 512

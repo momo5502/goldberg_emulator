@@ -450,7 +450,7 @@ int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
             profile_images[eAvatarSize] = ref;
             create_background_notify_task(Settings_Background_Task_IDs::NOTIFY_AVATAR_IMAGE, NULL);
         } else {
-            PRINT_DEBUG("%s %d %dx%d %"PRI_ZU".\n",
+            PRINT_DEBUG("%s %d %dx%d %" PRI_ZU ".\n",
                         "Settings::set_profile_image failed",
                         eAvatarSize,
                         image->width,

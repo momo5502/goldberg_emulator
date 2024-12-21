@@ -137,7 +137,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
             return avatar_ids->second;
         } else {
             // Request avatar data.
-            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar small request for %"PRIu64".\n", steam_id);
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar small request for %" PRIu64 ".\n", steam_id);
             Common_Message * msg_ = new Common_Message();
             msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
             msg_->set_dest_id(steam_id);
@@ -155,7 +155,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
             msg_->set_allocated_friend_avatar(friend_avatar);
             network->sendTo(msg_, true);
 
-            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar medium request for %"PRIu64".\n", steam_id);
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar medium request for %" PRIu64 ".\n", steam_id);
             msg_ = new Common_Message();
             msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
             msg_->set_dest_id(steam_id);
@@ -173,7 +173,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
             msg_->set_allocated_friend_avatar(friend_avatar);
             network->sendTo(msg_, true);
 
-            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar large request for %"PRIu64".\n", steam_id);
+            PRINT_DEBUG("Steam_Friends::add_friend_avatars sending Friend_Avatar large request for %" PRIu64 ".\n", steam_id);
             msg_ = new Common_Message();
             msg_->set_source_id(settings->get_local_steam_id().ConvertToUint64());
             msg_->set_dest_id(steam_id);
@@ -193,7 +193,7 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
         }
     }
 
-    PRINT_DEBUG("%s %s %s %"PRIu64".\n",
+    PRINT_DEBUG("%s %s %s %" PRIu64 ".\n",
                 "Steam_Friends::add_friend_avatars ",
                 (generate == true) ? "Generating empty" : "Notifying changed",
                 "avatar image for",
@@ -767,7 +767,7 @@ int GetSmallFriendAvatar( CSteamID steamIDFriend )
     //IMPORTANT NOTE: don't change friend avatar numbers for the same friend or else some games endlessly allocate stuff.
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.smallest);
+    PRINT_DEBUG("Steam_Friends::GetSmallFriendAvatar %" PRIu64 " -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.smallest);
     return numbers.smallest;
 }
 
@@ -777,7 +777,7 @@ int GetMediumFriendAvatar( CSteamID steamIDFriend )
 {
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.medium);
+    PRINT_DEBUG("Steam_Friends::GetMediumFriendAvatar %" PRIu64 " -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.medium);
     return numbers.medium;
 }
 
@@ -788,7 +788,7 @@ int GetLargeFriendAvatar( CSteamID steamIDFriend )
 {
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
     struct Avatar_Numbers numbers = add_friend_avatars(steamIDFriend);
-    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar %"PRIu64" -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.large);
+    PRINT_DEBUG("Steam_Friends::GetLargeFriendAvatar %" PRIu64 " -> %d.\n", steamIDFriend.ConvertToUint64(), numbers.large);
     return numbers.large;
 }
 
