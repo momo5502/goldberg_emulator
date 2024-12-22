@@ -1465,14 +1465,26 @@ int LoadWindowsFontFromMem(const LOGFONT *lf)
                         } else {
                             PRINT_DEBUG("%s %s. otmfsType data: %d.\n", "Licensing failure. Cannot use font", lf->lfFaceName, metric->otmfsType);
                         }
+                    } else {
+                        PRINT_DEBUG("%s %s.\n",
+                                    "Steam_Overlay::LoadWindowsFontFromMem GetOutlineTextMetrics() (fill font metric struct) failed for",
+                                    lf->lfFaceName);
                     }
 
                     free(metric);
                     metric = NULL;
                 }
+            } else {
+                PRINT_DEBUG("%s %s.\n",
+                            "Steam_Overlay::LoadWindowsFontFromMem GetOutlineTextMetrics() (get struct size) failed for",
+                            lf->lfFaceName);
             }
             SelectObject(CBSTR.hDevice, oldFont);
             DeleteObject(hFont);
+        } else {
+            PRINT_DEBUG("%s %s.\n",
+                        "Steam_Overlay::LoadWindowsFontFromMem CreateFontIndirect() failed for",
+                        lf->lfFaceName);
         }
     }
     return ret;
@@ -1693,7 +1705,7 @@ void Steam_Overlay::CreateFonts()
 
             DeleteDC(CBSTR.hDevice); // Order is important.
             DeleteObject(hBitmap);
-        }       
+        }
     }
     ReleaseDC(oWND, oDC);
 #else
@@ -2099,7 +2111,7 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                                                 "for user",
                                                 userID.ConvertToUint64(),
                                                 ". Load OK.");
-                                } else{
+                                } else {
                                     PRINT_DEBUG("%s %d %s %" PRIu64 " %s\n",
                                                 "Steam_Overlay::display_imgui_image Unable to get avatar image size",
                                                 eAvatarSize,

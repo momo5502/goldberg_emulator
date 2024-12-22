@@ -96,13 +96,24 @@ bool isAppIdCompatible(Friend *f)
 }
 
 void generate_avatar_numbers(struct Avatar_Numbers & nums) {
-    std::string small_avatar(32 * 32 * 4, 0);
-    std::string medium_avatar(64 * 64 * 4, 0);
-    std::string large_avatar(184 * 184 * 4, 0);
+    static struct Avatar_Numbers blanks;
 
-    nums.smallest = settings->add_image(small_avatar, 32, 32);
-    nums.medium = settings->add_image(medium_avatar, 64, 64);
-    nums.large = settings->add_image(large_avatar, 184, 184);
+    if (blanks.smallest == 0) {
+        std::string small_avatar(32 * 32 * 4, 0);
+        blanks.smallest = settings->add_image(small_avatar, 32, 32);
+    }
+    if (blanks.medium == 0) {
+        std::string medium_avatar(64 * 64 * 4, 0);
+        blanks.medium = settings->add_image(medium_avatar, 64, 64);
+    }
+    if (blanks.large == 0) {
+        std::string large_avatar(184 * 184 * 4, 0);
+        blanks.large = settings->add_image(large_avatar, 184, 184);
+    }
+
+    nums.smallest = blanks.smallest;
+    nums.medium = blanks.medium;
+    nums.large = blanks.large;
     return;
 }
 
@@ -113,6 +124,13 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
     auto avatar_ids = avatars.find(steam_id);
     bool generate = true;
     struct Avatar_Numbers avatar_numbers;
+
+    if (settings->is_settings_parser_done() == false) {
+        do {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        } while (settings->is_settings_parser_done() == false);
+    }
+
     if (settings->get_local_steam_id().ConvertToUint64() == steam_id) {
         avatar_numbers.smallest = settings->get_profile_image(k_EAvatarSize32x32);
         avatar_numbers.medium = settings->get_profile_image(k_EAvatarSize64x64);
@@ -194,12 +212,17 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
     }
 
     PRINT_DEBUG("%s %s %s %" PRIu64 ".\n",
-                "Steam_Friends::add_friend_avatars ",
+                "Steam_Friends::add_friend_avatars",
                 (generate == true) ? "Generating empty" : "Notifying changed",
                 "avatar image for",
                 steam_id);
     if (generate == true) {
         generate_avatar_numbers(avatar_numbers);
+        if (settings->get_local_steam_id().ConvertToUint64() == steam_id) {
+            settings->set_profile_image(k_EAvatarSize32x32, avatar_numbers.smallest, false);
+            settings->set_profile_image(k_EAvatarSize64x64, avatar_numbers.medium, false);
+            settings->set_profile_image(k_EAvatarSize184x184, avatar_numbers.large, false);
+        }
     }
 
     avatar_numbers.last_update_time = std::chrono::steady_clock::now();
@@ -212,16 +235,9 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
     AvatarImageLoaded_t ail_data = {};
     bool sent_ail = false;
 
-    auto image = settings->images.find(avatar_numbers.smallest);
-    if (image != settings->images.end()) {
-        width = image->second.width;
-        height = image->second.height;
-    } else {
-        width = 0;
-        height = 0;
-    }
+    auto image = settings->get_image(avatar_numbers.smallest, NULL, &width, &height);
 
-    if (avatar_numbers.smallest) {
+    if (image == avatar_numbers.smallest) {
        ail_data.m_steamID = steam_id;
        ail_data.m_iImage = avatar_numbers.smallest;
        ail_data.m_iWide = width;
@@ -230,16 +246,9 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
        sent_ail = true;
     }
 
-    image = settings->images.find(avatar_numbers.medium);
-    if (image != settings->images.end()) {
-        width = image->second.width;
-        height = image->second.height;
-    } else {
-        width = 0;
-        height = 0;
-    }
+    image = settings->get_image(avatar_numbers.medium, NULL, &width, &height);
 
-    if (avatar_numbers.medium) {
+    if (image == avatar_numbers.medium) {
        ail_data.m_steamID = steam_id;
        ail_data.m_iImage = avatar_numbers.medium;
        ail_data.m_iWide = width;
@@ -248,16 +257,9 @@ struct Avatar_Numbers add_friend_avatars(CSteamID id)
        sent_ail = true;
     }
 
-    image = settings->images.find(avatar_numbers.large);
-    if (image != settings->images.end()) {
-        width = image->second.width;
-        height = image->second.height;
-    } else {
-        width = 0;
-        height = 0;
-    }
+    image = settings->get_image(avatar_numbers.large, NULL, &width, &height);
 
-    if (avatar_numbers.large) {
+    if (image == avatar_numbers.large) {
        ail_data.m_steamID = steam_id;
        ail_data.m_iImage = avatar_numbers.large;
        ail_data.m_iWide = width;

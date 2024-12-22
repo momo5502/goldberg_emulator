@@ -84,6 +84,7 @@ class Settings {
     std::vector<Settings_Background_Task> background_tasks;
     std::thread background_monitor_thread;
     std::recursive_mutex background_thread_mutex;
+    std::atomic<bool> settings_parser_done;
 
     bool unlockAllDLCs;
     bool offline;
@@ -127,6 +128,9 @@ public:
     bool is_offline() {return offline; }
     uint16 get_port() {return port;}
     void set_port(uint16 port) { this->port = port;}
+
+    bool is_settings_parser_done() { return this->settings_parser_done; }
+    void set_settings_parser_done(const bool done) { this->settings_parser_done = done; }
 
     //DLC stuff
     void unlockAllDLC(bool value);
@@ -176,6 +180,7 @@ public:
     int get_image(int ref, std::string * data, uint32 * width, uint32 * height);
     int get_profile_image(int eAvatarSize);
     int set_profile_image(int eAvatarSize, Image_Data * image);
+    int set_profile_image(int eAvatarSize, int reference, bool notify);
     int get_preferred_network_image_type() { return this->preferred_network_image_type; }
     void set_preferred_network_image_type(int new_type);
 

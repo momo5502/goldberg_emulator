@@ -347,9 +347,9 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
 
     bool warn_forced = false;
 
-    Image_Data profile_small;
-    Image_Data profile_medium;
-    Image_Data profile_large;
+    Image_Data profile_small {0, 0, std::string()};
+    Image_Data profile_medium {0, 0, std::string()};
+    Image_Data profile_large {0, 0, std::string()};
 
     {
         std::string steam_settings_path = local_storage->get_global_settings_path();
@@ -730,6 +730,9 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     }
 
     load_gamecontroller_settings(settings_client);
+
+    settings_client->set_settings_parser_done(true);
+    settings_server->set_settings_parser_done(true);
 
     *settings_client_out = settings_client;
     *settings_server_out = settings_server;

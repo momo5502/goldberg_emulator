@@ -45,6 +45,8 @@ Settings::Settings(CSteamID steam_id, CGameID game_id, std::string name, std::st
         this->name = this->name + " ";
     }
 
+    this->settings_parser_done = false;
+
     this->ui_notification_position = "";
 
     auto lang = sanitize(language);
@@ -460,6 +462,44 @@ int Settings::set_profile_image(int eAvatarSize, Image_Data * image)
                         image->height,
                         image->data.length());
         }
+    }
+
+    return ref;
+}
+
+int Settings::set_profile_image(int eAvatarSize, int reference, bool notify = true)
+{
+    bool size_ok = false;
+    int ref = 0;
+    std::lock_guard<std::recursive_mutex> lock(images_mutex);
+    auto t = images.find(reference);
+    if (reference != 0 &&
+        t != images.end()) {
+        ref = t->first;
+        if (eAvatarSize == k_EAvatarSize32x32 && t->second.width > 0 && t->second.width <= 32 && t->second.height > 0 && t->second.height <= 32)
+            size_ok = true;
+        if (eAvatarSize == k_EAvatarSize64x64 && t->second.width > 32 && t->second.width <= 64 && t->second.height > 32 && t->second.height <= 64)
+            size_ok = true;
+        if (eAvatarSize == k_EAvatarSize184x184 && t->second.width > 64 && t->second.width <= 184 && t->second.height > 64 && t->second.height <= 184)
+            size_ok = true;
+
+        if (size_ok == true) {
+            PRINT_DEBUG("Settings::set_profile_image %d -> %d.\n", eAvatarSize, ref);
+            profile_images[eAvatarSize] = ref;
+            if (notify == true) {
+                create_background_notify_task(Settings_Background_Task_IDs::NOTIFY_AVATAR_IMAGE, NULL);
+            }
+        } else {
+            PRINT_DEBUG("%s %d ref: %d.\n",
+                        "Settings::set_profile_image failed invalid size. size:",
+                        eAvatarSize,
+                        reference);
+        }
+    } else {
+        PRINT_DEBUG("%s %d ref: %d.\n",
+                    "Settings::set_profile_image failed invalid reference. size:",
+                    eAvatarSize,
+                    reference);
     }
 
     return ref;
