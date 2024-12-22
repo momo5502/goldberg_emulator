@@ -377,6 +377,8 @@ void Settings::background_monitor_entry(Settings * settings) {
     return;
 }
 
+#define BACKGROUND_MONITOR_RATE 200
+
 void Settings::background_monitor() {
     bool exit = false;
     do {
@@ -418,6 +420,7 @@ void Settings::background_monitor() {
                         }
                     }
                 }
+                std::this_thread::sleep_for(std::chrono::milliseconds(BACKGROUND_MONITOR_RATE));
             }
         }
     } while(!exit);
