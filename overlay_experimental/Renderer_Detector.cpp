@@ -583,6 +583,23 @@ private:
     {
         if (!dx10_hooked)
         {
+            //HACK: Remove when wine _finally_ implements the NULL renderer....
+            bool found_wine = false;
+            std::string ntdll_path = FindPreferedModulePath("ntdll.dll");
+            if (!ntdll_path.empty())
+            {
+                HMODULE hNTdll = GetModuleHandleA(ntdll_path.c_str());
+                if (hNTdll != nullptr)
+                {
+                    auto wine_get_version = (const char*(*)())GetProcAddress(hNTdll, "wine_get_version");
+                    if (wine_get_version != nullptr)
+                    {
+                        found_wine = true;
+                        SPDLOG_WARN("Found WINE version: %s.\n", wine_get_version());
+                    }
+                }
+            }
+
             System::Library::Library libD3d10;
             if (!libD3d10.OpenLibrary(library_path, false))
             {
@@ -607,7 +624,7 @@ private:
 
                     if (D3D10CreateDevice != nullptr && CreateDXGIFactory1 != nullptr)
                     {
-                        D3D10CreateDevice(NULL, D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &pDevice);
+                        D3D10CreateDevice(NULL, (found_wine) ? D3D10_DRIVER_TYPE_WARP : D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &pDevice);
                         if (pDevice != nullptr)
                         {
                             CreateDXGIFactory1(IID_PPV_ARGS(&pDXGIFactory));
@@ -660,7 +677,7 @@ private:
                     SwapChainDesc.SampleDesc.Quality = 0;
                     SwapChainDesc.Windowed = TRUE;
 
-                    D3D10CreateDeviceAndSwapChain(NULL, D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice);
+                    D3D10CreateDeviceAndSwapChain(NULL, (found_wine) ? D3D10_DRIVER_TYPE_WARP : D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice);
                 }
             }
 
@@ -698,6 +715,23 @@ private:
     {
         if (!dx11_hooked)
         {
+            //HACK: Remove when wine _finally_ implements the NULL renderer....
+            bool found_wine = false;
+            std::string ntdll_path = FindPreferedModulePath("ntdll.dll");
+            if (!ntdll_path.empty())
+            {
+                HMODULE hNTdll = GetModuleHandleA(ntdll_path.c_str());
+                if (hNTdll != nullptr)
+                {
+                    auto wine_get_version = (const char*(*)())GetProcAddress(hNTdll, "wine_get_version");
+                    if (wine_get_version != nullptr)
+                    {
+                        found_wine = true;
+                        SPDLOG_WARN("Found WINE version: %s.\n", wine_get_version());
+                    }
+                }
+            }
+
             System::Library::Library libD3d11;
             if (!libD3d11.OpenLibrary(library_path, false))
             {
@@ -722,7 +756,7 @@ private:
 
                     if (D3D11CreateDevice != nullptr && CreateDXGIFactory1 != nullptr)
                     {
-                        D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &pDevice, NULL, NULL);
+                        D3D11CreateDevice(NULL, (found_wine) ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &pDevice, NULL, NULL);
                         if (pDevice != nullptr)
                         {
                             CreateDXGIFactory1(IID_PPV_ARGS(&pDXGIFactory));
@@ -775,7 +809,7 @@ private:
                     SwapChainDesc.SampleDesc.Quality = 0;
                     SwapChainDesc.Windowed = TRUE;
 
-                    D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice, NULL, NULL);
+                    D3D11CreateDeviceAndSwapChain(NULL, (found_wine) ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice, NULL, NULL);
                 }
             }
 
