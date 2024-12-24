@@ -2424,13 +2424,23 @@ void Steam_Overlay::OverlayProc()
 
                 ImGui::LabelText("##label", "Renderer: %s", (_renderer == nullptr ? "Unknown" : _renderer->GetLibraryName().c_str()));
 
-                ImGui::Text("Achievements earned: %d / %d", earned_achievement_count, total_achievement_count);
-                ImGui::SameLine();
-                ImGui::ProgressBar((earned_achievement_count / total_achievement_count), ImVec2((io.DisplaySize.x * 0.20f),0));
+                if (total_achievement_count > 0) {
+                    ImGui::Text("Achievements earned: %d / %d", earned_achievement_count, total_achievement_count);
+                    ImGui::SameLine();
+                    ImGui::ProgressBar((earned_achievement_count / total_achievement_count), ImVec2((io.DisplaySize.x * 0.20f),0));
+                } else {
+                    ImGui::Text("Achievements not loaded. Unable to display statistics.");
+                }
 
                 ImGui::Spacing();
+                if (total_achievement_count <= 0) {
+                    ImGui::BeginDisabled();
+                }
                 if (ImGui::Button("Show Achievements")) {
                     show_achievements = true;
+                }
+                if (total_achievement_count <= 0) {
+                    ImGui::EndDisabled();
                 }
 
                 ImGui::SameLine();
