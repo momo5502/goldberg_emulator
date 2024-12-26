@@ -302,6 +302,12 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
         local_storage->store_data_settings("user_steam_id.txt", temp_text, strlen(temp_text));
     }
 
+    if (Local_Storage::is_directory(Local_Storage::get_user_appdata_path().append(PATH_SEPARATOR).append("minidumps")) == false) {
+        local_storage->store_data_settings(std::string("minidumps").append(PATH_SEPARATOR).append("dummy.txt"),
+                                           " ",
+                                           sizeof(" ") / sizeof(char));
+    }
+
     std::set<std::string> supported_languages;
 
     {

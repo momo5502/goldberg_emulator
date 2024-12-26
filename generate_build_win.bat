@@ -20,9 +20,9 @@ IF NOT EXIST build\experimental_steamclient\steamclient_loader\debug ( mkdir bui
 IF NOT EXIST build\experimental_steamclient\steamclient_loader\release ( mkdir build\experimental_steamclient\steamclient_loader\release )
 IF NOT EXIST build\lobby_connect\debug ( mkdir build\lobby_connect\debug )
 IF NOT EXIST build\lobby_connect\release ( mkdir build\lobby_connect\release )
-IF NOT EXIST build\release\tools ( mkdir build\release\tools )
-IF NOT EXIST build\release\tools\debug ( mkdir build\release\tools\debug )
-IF NOT EXIST build\release\tools\release ( mkdir build\release\tools\release )
+IF NOT EXIST build\tools ( mkdir build\tools )
+IF NOT EXIST build\tools\debug ( mkdir build\tools\debug )
+IF NOT EXIST build\tools\release ( mkdir build\tools\release )
 
 IF NOT EXIST build\debug\x86 ( mkdir build\debug\x86 )
 IF NOT EXIST build\debug\x64 ( mkdir build\debug\x64 )
@@ -61,10 +61,10 @@ IF NOT EXIST build\lobby_connect\debug\x86 ( mkdir build\lobby_connect\debug\x86
 IF NOT EXIST build\lobby_connect\debug\x64 ( mkdir build\lobby_connect\debug\x64 )
 IF NOT EXIST build\lobby_connect\release\x86 ( mkdir build\lobby_connect\release\x86 )
 IF NOT EXIST build\lobby_connect\release\x64 ( mkdir build\lobby_connect\release\x64 )
-IF NOT EXIST build\release\tools\debug\x86 ( mkdir build\release\tools\debug\x86 )
-IF NOT EXIST build\release\tools\debug\x64 ( mkdir build\release\tools\debug\x64 )
-IF NOT EXIST build\release\tools\release\x86 ( mkdir build\release\tools\release\x86 )
-IF NOT EXIST build\release\tools\release\x64 ( mkdir build\release\tools\release\x64 )
+IF NOT EXIST build\tools\debug\x86 ( mkdir build\tools\debug\x86 )
+IF NOT EXIST build\tools\debug\x64 ( mkdir build\tools\debug\x64 )
+IF NOT EXIST build\tools\release\x86 ( mkdir build\tools\release\x86 )
+IF NOT EXIST build\tools\release\x64 ( mkdir build\tools\release\x64 )
 
 IF NOT EXIST debug ( mkdir debug )
 IF NOT EXIST debug\experimental ( mkdir debug\experimental )
@@ -178,7 +178,7 @@ dir /b /s %PROTOBUF_X64_LIBRARY% > %CDS_DIR%\PROTOBUF_X64.OS
 
 REM BASE DLL.
 IF EXIST %CDS_DIR%\DLL_MAIN_CPP.OS ( DEL /F /S /Q %CDS_DIR%\DLL_MAIN_CPP.OS )
-echo dbghelp.lib > %CDS_DIR%\EXPERIMENTAL.OS
+echo dbghelp.lib > %CDS_DIR%\DLL_MAIN_CPP.OS
 echo Iphlpapi.lib >> %CDS_DIR%\DLL_MAIN_CPP.OS
 echo Ws2_32.lib >> %CDS_DIR%\DLL_MAIN_CPP.OS
 echo Shell32.lib >> %CDS_DIR%\DLL_MAIN_CPP.OS

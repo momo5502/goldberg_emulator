@@ -17,7 +17,9 @@
 
 #define STEAM_API_FUNCTIONS_IMPL
 #include "dll.h"
-
+#ifdef STEAM_WIN32
+#include <DbgHelp.h>
+#endif
 
 static char old_client[128] = "SteamClient017";
 static char old_gameserver[128] = "SteamGameServer012";
@@ -244,6 +246,40 @@ STEAMAPI_API void * S_CALLTYPE SteamInternal_ContextInit( void *pContextInitData
     return &contextInitData->ctx;
 }
 
+static std::mutex minidump_global_mutex;
+static bool minidump_enable = true;
+static bool minidump_comment_enable = true;
+static std::string minidump_comment;
+static std::string minidump_path;
+static std::string start_time;
+
+bool get_minidump_enable() {
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+    return minidump_enable;
+}
+
+bool get_minidump_comment_enable() {
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+    return minidump_comment_enable;
+}
+
+void set_minidump_enable(bool enable) {
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+    minidump_enable = enable;
+    return;
+}
+
+void set_minidump_comment_enable(bool enable) {
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+    minidump_comment_enable = enable;
+    return;
+}
+
+std::string get_start_time() {
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+    return start_time;
+}
+
 //steam_api.h
 // SteamAPI_Init must be called before using any other API functions. If it fails, an
 // error message will be output to the debugger (or stderr) with further information.
@@ -252,6 +288,11 @@ STEAMAPI_API steam_bool S_CALLTYPE SteamAPI_Init()
 {
     PRINT_DEBUG("SteamAPI_Init called\n");
     if (user_steam_pipe) return true;
+    {
+        std::lock_guard<std::mutex> lock(minidump_global_mutex);
+        if (start_time.length() <= 0) start_time = std::to_string((std::chrono::duration_cast<std::chrono::seconds>(((std::chrono::system_clock::now()).time_since_epoch()))).count());
+        if (minidump_path.length() <= 0) minidump_path = Local_Storage::get_user_appdata_path().append(PATH_SEPARATOR).append("minidumps").append(PATH_SEPARATOR).append("steam_minidump_").append(start_time).append(".mdmp");
+    }
 #ifdef EMU_EXPERIMENTAL_BUILD
     crack_SteamAPI_Init();
 #endif
@@ -340,6 +381,11 @@ STEAMAPI_API void S_CALLTYPE SteamAPI_Shutdown()
 STEAMAPI_API steam_bool S_CALLTYPE SteamAPI_RestartAppIfNecessary( uint32 unOwnAppID )
 {
     PRINT_DEBUG("SteamAPI_RestartAppIfNecessary %u\n", unOwnAppID);
+    {
+        std::lock_guard<std::mutex> lock(minidump_global_mutex);
+        if (start_time.length() <= 0) start_time = std::to_string((std::chrono::duration_cast<std::chrono::seconds>(((std::chrono::system_clock::now()).time_since_epoch()))).count());
+        if (minidump_path.length() <= 0) minidump_path = Local_Storage::get_user_appdata_path().append(PATH_SEPARATOR).append("minidumps").append(PATH_SEPARATOR).append("steam_minidump_").append(start_time).append(".mdmp");
+    }
 #ifdef EMU_EXPERIMENTAL_BUILD
     crack_SteamAPI_RestartAppIfNecessary(unOwnAppID);
 #endif
@@ -360,11 +406,93 @@ STEAMAPI_API void S_CALLTYPE SteamAPI_ReleaseCurrentThreadMemory()
 STEAMAPI_API void S_CALLTYPE SteamAPI_WriteMiniDump( uint32 uStructuredExceptionCode, void* pvExceptionInfo, uint32 uBuildID )
 {
     PRINT_DEBUG("SteamAPI_WriteMiniDump\n");
+#ifdef STEAM_WIN32
+    if (!get_minidump_enable())
+        return;
+
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+
+    MINIDUMP_EXCEPTION_INFORMATION mei;
+    memset(&mei, '\0', sizeof(MINIDUMP_EXCEPTION_INFORMATION));
+    mei.ThreadId = GetCurrentThreadId();
+    mei.ExceptionPointers = (EXCEPTION_POINTERS*)pvExceptionInfo;
+    mei.ClientPointers = false;
+
+    char expCode[40] = {'S', 't', 'r', 'u', 'c', 't', 'u', 'r', 'e', 'd', ' ',
+                        'E', 'x', 'c', 'e', 'p', 't', 'i', 'o', 'n', ' ',
+                        'C', 'o', 'd', 'e', ':', ' ',
+                        '4', '2', '9', '4', '9', '6', '7', '2', '9', '5', '\0', '\0'};
+    char * printExpCode = &expCode[26];
+    snprintf(printExpCode, (39 - 26), "%u", uStructuredExceptionCode);
+
+    char buildId[25] = { 'B', 'u', 'i', 'l', 'd', ' ',
+                         'I', 'D', ':', ' ',
+                         '4', '2', '9', '4', '9', '6', '7', '2', '9', '5', '\0', '\0', '\0', '\0', '\0'};
+    char * printBuildId = &expCode[10];
+    snprintf(printBuildId, (24 - 10), "%u", uBuildID);
+
+    MINIDUMP_USER_STREAM mus[3];
+    memset(&mus, '\0', sizeof(MINIDUMP_USER_STREAM) * 3);
+
+    mus[0].Type = CommentStreamA;
+    mus[0].BufferSize = 40;
+    mus[0].Buffer = (void*)&expCode;
+
+    mus[1].Type = CommentStreamA;
+    mus[1].BufferSize = 25;
+    mus[1].Buffer = (void*)&buildId;
+
+    mus[2].BufferSize = minidump_comment.length();
+    if (minidump_comment.length() > 0) {
+        mus[2].Type = CommentStreamA;
+        mus[2].BufferSize = minidump_comment.length();
+        if (mus[2].BufferSize > 0) {
+            mus[2].Buffer = (void*)minidump_comment.c_str();
+        }
+    }
+
+    MINIDUMP_USER_STREAM_INFORMATION musi;
+    memset(&musi, '\0', sizeof(MINIDUMP_USER_STREAM_INFORMATION));
+    musi.UserStreamCount = (minidump_comment.length() > 0) ? 3 : 2;
+    musi.UserStreamArray = (MINIDUMP_USER_STREAM*)&mus;
+    if (minidump_path.length() > 0) {
+        HANDLE hFile = CreateFile(minidump_path.c_str(),
+                                  GENERIC_READ | GENERIC_WRITE,
+                                  0,
+                                  NULL,
+                                  CREATE_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL,
+                                  NULL);
+        if (hFile != INVALID_HANDLE_VALUE) {
+            MiniDumpWriteDump(GetCurrentProcess(),
+                              GetCurrentProcessId(),
+                              hFile,
+                              (MINIDUMP_TYPE)(MiniDumpWithFullMemory | MiniDumpWithProcessThreadData | MiniDumpWithThreadInfo | MiniDumpWithUnloadedModules | MiniDumpWithTokenInformation),
+                              ((pvExceptionInfo != NULL) ? &mei : NULL),
+                              &musi,
+                              NULL);
+            CloseHandle(hFile);
+        }
+    }
+#endif
+    return;
 }
 
 STEAMAPI_API void S_CALLTYPE SteamAPI_SetMiniDumpComment( const char *pchMsg )
 {
-    PRINT_DEBUG("SteamAPI_SetMiniDumpComment: %s\n", pchMsg);
+    if (get_minidump_enable() == false || get_minidump_comment_enable() == false)
+        return;
+
+    std::lock_guard<std::mutex> lock(minidump_global_mutex);
+
+    if (pchMsg != NULL) {
+        PRINT_DEBUG("SteamAPI_SetMiniDumpComment: %s\n", pchMsg);
+        minidump_comment = std::string(pchMsg);
+    } else {
+        PRINT_DEBUG("SteamAPI_SetMiniDumpComment: Empty string.\n");
+        minidump_comment.clear();
+    }
+    return;
 }
 
 //----------------------------------------------------------------------------------------------------------------------------------------------------------//

@@ -29,6 +29,12 @@ Steam_Client *get_steam_client();
 bool steamclient_has_ipv6_functions();
 Steam_Client *try_get_steam_client();
 
+bool get_minidump_enable();
+bool get_minidump_comment_enable();
+void set_minidump_enable(bool enable);
+void set_minidump_comment_enable(bool enable);
+std::string get_start_time();
+
 HSteamUser flat_hsteamuser();
 HSteamPipe flat_hsteampipe();
 HSteamUser flat_gs_hsteamuser();
