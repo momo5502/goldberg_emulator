@@ -162,7 +162,7 @@ void Steam_Overlay::populate_initial_profile_images(CSteamID id = k_steamIDNil) 
 bool Steam_Overlay::LoadProfileImage(const CSteamID & id, const int eAvatarSize) {
     bool ret = false;
     Profile_Image_Set new_images;
-    Profile_Image_Set old_images;
+    memset(&new_images, '\0', sizeof(Profile_Image_Set));
 
     ret = LoadProfileImage(id, eAvatarSize, new_images);
     if (ret == true) {
