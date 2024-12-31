@@ -718,7 +718,7 @@ void Steam_Overlay::UnSetupOverlay()
 {
     ingame_overlay::StopRendererDetection();
     if (!Ready() && future_renderer.valid()) {
-        if (future_renderer.wait_for(std::chrono::milliseconds{500}) ==  std::future_status::ready) {
+        if (future_renderer.wait_for(std::chrono::milliseconds{500} + std::chrono::seconds{MAX_RENDERER_API_DETECT_TIMEOUT}) ==  std::future_status::ready) {
             future_renderer.get();
             ingame_overlay::FreeDetector();
         }
