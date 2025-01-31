@@ -32,6 +32,7 @@ includes_64 = list(map(lambda a: '/I{}'.format(a), ["%PROTOBUF_X64_DIRECTORY%\\i
 debug_build_args = []
 release_build_args = ["/DEMU_RELEASE_BUILD", "/DNDEBUG"]
 steamclient_build_args = ["/DSTEAMCLIENT_DLL"]
+lobby_connect_args = ["/DNO_DISK_WRITES", "/DLOBBY_CONNECT"]
 
 experimental_build_args = ["/DEMU_EXPERIMENTAL_BUILD", "/DCONTROLLER_SUPPORT", "/DEMU_OVERLAY"]
 steamclient_experimental_build_args = experimental_build_args + steamclient_build_args
@@ -62,6 +63,7 @@ mkdir release\experimental
 mkdir release\experimental_steamclient
 mkdir release\debug_experimental
 mkdir release\debug_experimental_steamclient
+mkdir release\lobby_connect
 call build_set_protobuf_directories.bat
 """
 
@@ -81,7 +83,8 @@ xcopy /s files_example\* release\\
 copy Readme_experimental.txt release\experimental\Readme.txt
 copy Readme_debug.txt release\debug_experimental\Readme.txt
 copy steamclient_loader\ColdClientLoader.ini release\experimental_steamclient\\
-call build_win_lobby_connect.bat
+REM call build_win_lobby_connect.bat
+copy Readme_lobby_connect.txt release\lobby_connect\Readme.txt
 call build_win_find_interfaces.bat
 """
 
@@ -113,6 +116,8 @@ def generate_common(include_arch, linker_arch, steam_api_name, steamclient_name)
     return out
 
 out += generate_common(includes_32, linker_32, "steam_api.dll", "steamclient.dll")
+
+out += cl_line_exe(files_from_dir("./", "lobby_connect.cpp") + files_from_dir("dll", "flat.cpp") + files_from_dir("dll", "dll.cpp") + lobby_connect_args + normal_build_args + release_build_args + includes_32 + proto_deps + steam_deps + normal_linker_libs + ["Comdlg32.lib", "user32.lib"], linker_32 + ["/debug:none", "/OUT:release\lobby_connect\lobby_connect.exe"])
 
 out += cl_line_exe(files_from_dir("steamclient_loader", ".cpp") + ["advapi32.lib", "user32.lib"] + normal_build_args, ["/debug:none", "/OUT:release\experimental_steamclient\steamclient_loader.exe"])
 

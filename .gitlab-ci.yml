@@ -69,15 +69,21 @@ build_windows:
       - 7za x protobuf_x86-windows-static.7z -oprotobuf_x86-windows-static
       - 7za x protobuf_x64-windows-static.7z -oprotobuf_x64-windows-static
       - 7za x sdk_standalone.7z -osdk_standalone
-      - DLL_FILES="$(ls dll/*.cpp | tr "\n" " ")"; sed "s|dll/\*.cpp|$DLL_FILES|g" -i *.bat
-      - DLL_FILES="$(ls dll/*.proto | tr "\n" " " | sed "s/.proto/.pb.cc/g")"; sed "s|dll/\*.cc|$DLL_FILES|g" -i *.bat
+      - DLL_FILES="$(ls dll/*.cpp | tr "\n" " " | tr "/" "\\\\")"; sed "s|dll/\*.cpp|$DLL_FILES|g" -i *.bat
+      - DLL_FILES="$(ls dll/*.proto | tr "\n" " " | tr "/" "\\\\" | sed "s/.proto/.pb.cc/g")"; sed "s|dll/\*.cc|$DLL_FILES|g" -i *.bat
       - sed "s| /MP12 | /MP4 |g" -i *.bat
+      # CI can't produce PDBs. Throws a bunch of errors, and skips building the PEs.
+      - sed "s| /DDEBUG\:FULL | |g" -i *.bat
+      # Turn on echo.
+      - sed "s|echo off|echo on|g" -i *.bat
       - python generate_build_win_bat.py
       - export WINEDEBUG=-all
       - wine cmd /c build_win_release_test.bat
+      - cp build_win_release_test.bat release/build_win_release_test.bat
   artifacts:
     paths:
       - release/
+      - debug/
     expire_in: 1 day
 
 build_cmake_linux:
