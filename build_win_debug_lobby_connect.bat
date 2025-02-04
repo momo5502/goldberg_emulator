@@ -1,25 +1,46 @@
 @echo off
 cd /d "%~dp0"
 
-IF NOT EXIST build ( mkdir build )
-IF NOT EXIST build\debug ( mkdir build\debug )
-IF NOT EXIST build\debug\lobby_connect ( mkdir build\debug\lobby_connect )
-IF NOT EXIST build\debug\lobby_connect\x86 ( mkdir build\debug\lobby_connect\x86 )
+SET OLD_DIR=%cd%
+
+IF NOT "%1" == "" ( SET JOB_COUNT=%~1 )
+
+IF NOT DEFINED BUILT_ALL_DEPS ( call generate_all_deps.bat )
+
 IF EXIST build\debug\lobby_connect\x86\*.* ( DEL /F /S /Q build\debug\lobby_connect\x86\*.* )
+IF EXIST build\debug\lobby_connect\x64\*.* ( DEL /F /S /Q build\debug\lobby_connect\x64\*.* )
 
-IF NOT EXIST debug ( mkdir debug )
-IF NOT EXIST debug\lobby_connect ( mkdir debug\lobby_connect )
 IF EXIST debug\lobby_connect\*.* ( DEL /F /S /Q debug\lobby_connect\*.* )
-
-call build_set_protobuf_directories.bat
 
 setlocal
 "%PROTOC_X86_EXE%" -I.\dll\ --cpp_out=.\dll\ .\dll\net.proto
 call build_env_x86.bat
-SET OLD_DIR=%cd%
-cd build\debug\lobby_connect\x86
-cl %OLD_DIR%/dll/rtlgenrandom.c %OLD_DIR%/dll/rtlgenrandom.def
-cl /DNO_DISK_WRITES /DLOBBY_CONNECT /DEMU_RELEASE_BUILD /I%OLD_DIR%/%PROTOBUF_X86_DIRECTORY%\include\ %OLD_DIR%/lobby_connect.cpp %OLD_DIR%/dll/*.cpp %OLD_DIR%/dll/*.cc "%OLD_DIR%/%PROTOBUF_X86_LIBRARY%" Iphlpapi.lib Ws2_32.lib rtlgenrandom.lib Shell32.lib Comdlg32.lib /EHsc /MP12 /Ox /DDEBUG:FULL /Zi /Fd:%OLD_DIR%\debug\lobby_connect\lobby_connect.pdb /link /OUT:%OLD_DIR%\debug\lobby_connect\lobby_connect.exe
+cd %OLD_DIR%\build\lobby_connect\debug\x86
+
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\PROTOBUF_X86.BLD @%CDS_DIR%\LOBBY_CONNECT.BLD
+IF EXIST %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS
+echo /link /OUT:%OLD_DIR%\debug\lobby_connect\lobby_connect_x32.exe >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS
+echo /link /IMPLIB:%cd%\lobby_connect_x32.lib >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\lobby_connect\lobby_connect_x32.pdb >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS )
+
+cl @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X86.BLD @%CDS_DIR%\PROTOBUF_X86.LKS @%CDS_DIR%\LOBBY_CONNECT.LKS @%CDS_DIR%\DEBUG_LOBBY_CONNECT_X86.LKS
 cd %OLD_DIR%
-copy Readme_lobby_connect.txt debug\lobby_connect\Readme.txt
 endlocal
+
+setlocal
+"%PROTOC_X86_EXE%" -I.\dll\ --cpp_out=.\dll\ .\dll\net.proto
+call build_env_x64.bat
+cd %OLD_DIR%\build\lobby_connect\debug\x64
+
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\PROTOBUF_X64.BLD @%CDS_DIR%\LOBBY_CONNECT.BLD
+IF EXIST %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS
+echo /link /OUT:%OLD_DIR%\debug\lobby_connect\lobby_connect_x64.exe >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS
+echo /link /IMPLIB:%cd%\lobby_connect_x64.lib >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\lobby_connect\lobby_connect_x64.pdb >> %CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS )
+
+cl @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X64.BLD @%CDS_DIR%\PROTOBUF_X64.LKS @%CDS_DIR%\LOBBY_CONNECT.LKS @%CDS_DIR%\DEBUG_LOBBY_CONNECT_X64.LKS
+cd %OLD_DIR%
+endlocal
+copy Readme_lobby_connect.txt debug\lobby_connect\Readme.txt

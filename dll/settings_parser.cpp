@@ -217,9 +217,39 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     load_custom_broadcasts(Local_Storage::get_game_settings_path() + "custom_master_server.txt", custom_master_server);
 
     // Acount name
-    char name[32] = {};
+    char name[32] = { '\0' };
     if (local_storage->get_data_settings("account_name.txt", name, sizeof(name) - 1) <= 0) {
-        strcpy(name, DEFAULT_NAME);
+        PRINT_DEBUG("%s.\n", "Attempting to set steam user name from system user name");
+#if defined(STEAM_WIN32)
+        DWORD username_dword = 32;
+        wchar_t username[32] = { '\0' };
+        if (GetUserNameW((wchar_t*)&username, &username_dword) == TRUE) {
+            std::wstring username_wstr(username);
+            std::string username_str = utf8_encode(username_wstr);
+            size_t username_len = username_str.length();
+            if (username_len > 0 &&
+                username_len < 31) {
+                memcpy(&name, username_str.c_str(), username_len);
+                name[31] = '\0';
+            }
+        }
+#else
+        char * env_username = getenv("USER");
+        if (env_username != NULL) {
+            size_t username_len = strlen(env_username);
+            if (username_len > 0 &&
+                username_len < 31) {
+                memcpy(&name, env_username, username_len);
+                name[31] = '\0';
+            }
+        }
+#endif
+        char empty_name[32] = { '\0' };
+        if (memcmp(name, empty_name, 32) == 0) {
+            PRINT_DEBUG("%s %s.\n", "Setting steam user name to", DEFAULT_NAME);
+            strcpy(name, DEFAULT_NAME);
+        }
+        PRINT_DEBUG("Username: %s.\n", name);
         local_storage->store_data_settings("account_name.txt", name, strlen(name));
     }
 

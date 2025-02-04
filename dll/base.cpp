@@ -19,14 +19,37 @@
 
 #ifdef __WINDOWS__
 
+HMODULE hadvapi32 = NULL;
+BOOLEAN (NTAPI *real_RtlGenRandom)(PVOID,ULONG) = NULL;
+
 static void
 randombytes(char * const buf, const size_t size)
 {
-    while (!RtlGenRandom((PVOID) buf, (ULONG) size)) {
-        PRINT_DEBUG("RtlGenRandom ERROR\n");
-        Sleep(100);
+    PRINT_DEBUG("%s %p %zu.\n", "mine_RtlGenRandom() called.", buf, size);
+    if (hadvapi32 == NULL) {
+        hadvapi32 = GetModuleHandleW(L"advapi32.dll");
+        if (hadvapi32 == NULL) {
+            PRINT_DEBUG("%s.\n", "GetModuleHandle() failed for advapi32.dll");
+        }
+        PRINT_DEBUG("advapi32.dll handle: 0x%x.\n", hadvapi32);
     }
-
+    if (hadvapi32 != NULL &&
+        real_RtlGenRandom == NULL) {
+        real_RtlGenRandom = (BOOLEAN(NTAPI *)(PVOID,ULONG))GetProcAddress(hadvapi32, "SystemFunction036");
+        if (real_RtlGenRandom == NULL) {
+            PRINT_DEBUG("%s.\n", "GetProcAddress() failed for RtlGenRandom()");
+        }
+        PRINT_DEBUG("real_RtlGenRandom address: 0x%p.\n", real_RtlGenRandom);
+    }
+    if (real_RtlGenRandom != NULL) {
+        PRINT_DEBUG("%s.\n", "Calling real_RtlGenRandom");
+        while (!real_RtlGenRandom((PVOID) buf, (ULONG) size)) {
+            PRINT_DEBUG("RtlGenRandom ERROR\n");
+            Sleep(100);
+        }
+        PRINT_DEBUG("%s.\n", "real_RtlGenRandom returned");
+    }
+    return;
 }
 
 std::string get_env_variable(std::string name)

@@ -59,27 +59,29 @@ build_windows:
   image: fedora:35
 
   script:
-      - dnf -y install wine wget p7zip sed dos2unix python
+      - dnf -y install wine wget p7zip sed dos2unix python cpio
       - unix2dos *.txt
       - unix2dos files_example/*.txt files_example/*/*.txt
       - sed -i 's/..\\vcpkg\\installed\\/.\\protobuf_/g' build_set_protobuf_directories.bat
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/48db8f434a193aae872279dc4f5dde6a/sdk_standalone.7z'
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/0119304e030098b4821d73170fe52084/protobuf_x64-windows-static.7z'
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/4185a97ab363ddc1859127e59ec68581/protobuf_x86-windows-static.7z'
+      # Ancient CI version of wine doesn't support the where.exe cmd. (It's a stub.) Use the version from wine-10.0.
+      - wget 'https://dl.fedoraproject.org/pub/fedora/linux/updates/41/Everything/x86_64/Packages/w/wine-core-10.0-1.fc41.i686.rpm'
+      - mkdir wine
+      - echo './usr/lib/wine/i386-windows/where.exe' > extract.txt; rpm2cpio wine-core-10.0-1.fc41.i686.rpm | cpio -ivdE extract.txt; rm -f extract.txt
+      - /usr/bin/mv -f ./usr/lib/wine/i386-windows/where.exe wine/; rm -rf ./usr/
+      - /usr/bin/cp -f wine/where.exe /usr/lib/wine/i386-windows/where.exe; /usr/bin/cp -f wine/where.exe /usr/lib64/wine/x86_64-windows/where.exe
       - 7za x protobuf_x86-windows-static.7z -oprotobuf_x86-windows-static
       - 7za x protobuf_x64-windows-static.7z -oprotobuf_x64-windows-static
       - 7za x sdk_standalone.7z -osdk_standalone
-      - DLL_FILES="$(ls dll/*.cpp | tr "\n" " " | tr "/" "\\\\")"; sed "s|dll/\*.cpp|$DLL_FILES|g" -i *.bat
-      - DLL_FILES="$(ls dll/*.proto | tr "\n" " " | tr "/" "\\\\" | sed "s/.proto/.pb.cc/g")"; sed "s|dll/\*.cc|$DLL_FILES|g" -i *.bat
       - sed "s| /MP12 | /MP4 |g" -i *.bat
       # CI can't produce PDBs. Throws a bunch of errors, and skips building the PEs.
-      - sed "s| /DDEBUG\:FULL | |g" -i *.bat
-      # Turn on echo.
-      - sed "s|echo off|echo on|g" -i *.bat
-      - python generate_build_win_bat.py
+      - touch CI_BUILD.TAG
       - export WINEDEBUG=-all
-      - wine cmd /c build_win_release_test.bat
-      - cp build_win_release_test.bat release/build_win_release_test.bat
+      - WINEPATH=$PWD/wine wine cmd /c build_win_debug_experimental_steamclient.bat 8
+      - WINEPATH=$PWD/wine wine cmd /c build_win_release.bat 8
+
   artifacts:
     paths:
       - release/
@@ -162,9 +164,9 @@ deploy_all:
     - mv linux release/
     - shopt -s extglob
     - rm -rf .g*
-    - rm -rf !(release)
-    - mv release/* ./
-    - rm -rf release
+    - rm -rf !(release|debug)
+#    - mv release/* ./
+#    - rm -rf release
     - echo $CI_JOB_ID > job_id
     - tree
   artifacts:

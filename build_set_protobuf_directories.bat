@@ -1,7 +1,14 @@
 @echo off
 cd /d "%~dp0"
-SET PROTOBUF_X86_DIRECTORY=..\vcpkg\installed\x86-windows-static
-SET PROTOBUF_X64_DIRECTORY=..\vcpkg\installed\x64-windows-static
+
+SET TEST_A=%cd%
+REM CI doesn't like this var expansion of "%cd%\".
+cd ..\vcpkg\installed\x86-windows-static
+SET PROTOBUF_X86_DIRECTORY=%cd%
+cd %TEST_A%
+cd ..\vcpkg\installed\x64-windows-static
+SET PROTOBUF_X64_DIRECTORY=%cd%
+cd %TEST_A%
 
 rem location of protoc in protobuf directories:
 SET PROTOC_X86_EXE=%PROTOBUF_X86_DIRECTORY%\tools\protobuf\protoc.exe

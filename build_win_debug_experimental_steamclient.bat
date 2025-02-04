@@ -1,36 +1,141 @@
 @echo off
 cd /d "%~dp0"
 
-IF NOT EXIST build ( mkdir build )
-IF NOT EXIST build\experimental_steamclient ( mkdir build\experimental_steamclient )
-IF NOT EXIST build\experimental_steamclient\debug ( mkdir build\experimental_steamclient\debug )
-IF NOT EXIST build\experimental_steamclient\debug\x86 ( mkdir build\experimental_steamclient\debug\x86 )
-IF NOT EXIST build\experimental_steamclient\debug\x64 ( mkdir build\experimental_steamclient\debug\x64 )
-IF EXIST build\experimental_steamclient\debug\x86\*.* ( DEL /F /S /Q build\experimental_steamclient\debug\x86\*.* )
-IF EXIST build\experimental_steamclient\debug\x64\*.* ( DEL /F /S /Q build\experimental_steamclient\debug\x64\*.* )
+SET OLD_DIR=%cd%
 
-IF NOT EXIST debug ( mkdir debug )
-IF NOT EXIST debug\experimental_steamclient ( mkdir debug\experimental_steamclient )
+IF NOT "%1" == "" ( SET JOB_COUNT=%~1 )
+
+IF NOT DEFINED BUILT_ALL_DEPS ( call generate_all_deps.bat )
+
+IF EXIST build\experimental\steamclient\debug\x86\*.* ( DEL /F /S /Q build\experimental\steamclient\debug\x86\*.* )
+IF EXIST build\experimental\steamclient\debug\x64\*.* ( DEL /F /S /Q build\experimental\steamclient\debug\x64\*.* )
+
 IF EXIST debug\experimental_steamclient\*.* ( DEL /F /S /Q debug\experimental_steamclient\*.* )
 
-call build_set_protobuf_directories.bat
-
 setlocal
+
+IF DEFINED SKIP_X86 GOTO LK_X64
+
 "%PROTOC_X86_EXE%" -I.\dll\ --cpp_out=.\dll\ .\dll\net.proto
 call build_env_x86.bat
-SET OLD_DIR=%cd%
-cd build\experimental_steamclient\debug\x86
-cl %OLD_DIR%/dll/rtlgenrandom.c %OLD_DIR%/dll/rtlgenrandom.def
-cl /LD /I%OLD_DIR%/ImGui /I%OLD_DIR%/%PROTOBUF_X86_DIRECTORY%\include\ /DSTEAMCLIENT_DLL /DCONTROLLER_SUPPORT /DEMU_EXPERIMENTAL_BUILD /DEMU_OVERLAY /I%OLD_DIR%/overlay_experimental %OLD_DIR%/dll/*.cpp %OLD_DIR%/dll/*.cc %OLD_DIR%/detours/*.cpp %OLD_DIR%/controller/gamepad.c %OLD_DIR%/ImGui/*.cpp %OLD_DIR%/ImGui/backends/imgui_impl_dx*.cpp %OLD_DIR%/ImGui/backends/imgui_impl_win32.cpp %OLD_DIR%/ImGui/backends/imgui_impl_vulkan.cpp %OLD_DIR%/ImGui/backends/imgui_impl_opengl3.cpp %OLD_DIR%/ImGui/backends/imgui_win_shader_blobs.cpp %OLD_DIR%/overlay_experimental/*.cpp %OLD_DIR%/overlay_experimental/windows/*.cpp %OLD_DIR%/overlay_experimental/System/*.cpp "%OLD_DIR%/%PROTOBUF_X86_LIBRARY%" opengl32.lib Iphlpapi.lib Ws2_32.lib rtlgenrandom.lib Shell32.lib Winmm.lib /EHsc /MP12 /DDEBUG:FULL /Zi /Fd:%OLD_DIR%\debug\experimental_steamclient\steamclient.pdb /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient.dll
-cl %OLD_DIR%/steamclient_loader/*.cpp advapi32.lib user32.lib /EHsc /MP12 /Ox /DDEBUG:FULL /Zi /Fd:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x32.pdb /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x32.exe
+
+REM Non-STEAMCLIENT_DLL debug sc_deps.
+cd "%OLD_DIR%\build\experimental_steamclient\debug\x86\sc_deps"
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\PROTOBUF_X86.BLD @%CDS_DIR%\SC_DEPS.BLD
+IF EXIST %CDS_DIR%\DEBUG_SC_DEPS_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_SC_DEPS_X86.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_SC_DEPS_X86.LKS
+
+IF DEFINED SKIP_EXPERIMENTAL_BUILD GOTO LK_EXP_STEAMCLIENT_DLL_X86
+
+REM Link Non-STEAMCLIENT_DLL debug steam_api.dll.
+cd "%OLD_DIR%\build\experimental\debug\x86\"
+IF EXIST %CDS_DIR%\DEBUG_STEAMAPI_NON_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMAPI_NON_X86.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental\steam_api.dll > %CDS_DIR%\DEBUG_STEAMAPI_NON_X86.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental\steam_api.pdb >> %CDS_DIR%\DEBUG_STEAMAPI_NON_X86.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X86.LKS @%CDS_DIR%\EXPERIMENTAL.BLD @%CDS_DIR%\EXPERIMENTAL.LKS @%CDS_DIR%\DEBUG_ALL_DEPS_X86.LKS @%CDS_DIR%\DEBUG_SC_DEPS_X86.LKS @%CDS_DIR%\DEBUG_STEAMAPI_NON_X86.LKS
+
+:LK_EXP_STEAMCLIENT_DLL_X86
+
+IF DEFINED SKIP_EXPERIMENTAL_STEAMCLIENT_BUILD GOTO LK_STEAMCLIENT_DLL_X86
+
+REM Link STEAMCLIENT_DLL debug steamclient.dll
+cd "%OLD_DIR%\build\experimental_steamclient\debug\x86"
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_X86.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient.dll > %CDS_DIR%\DEBUG_STEAMCLIENT_X86.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental_steamclient\steamclient.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_X86.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X86.LKS @%CDS_DIR%\EXPERIMENTAL_STEAMCLIENT.LKS @%CDS_DIR%\DEBUG_ALL_DEPS_X86.LKS @%CDS_DIR%\DEBUG_SC_DEPS_X86.LKS @%CDS_DIR%\DEBUG_STEAMCLIENT_X86.LKS
+
+:LK_STEAMCLIENT_DLL_X86
+
+IF DEFINED SKIP_EXPERIMENTAL_BUILD GOTO LK_STEAMCLIENT_LOADER_X86
+
+REM Link Non-STEAMCLIENT_DLL debug steamclient.dll.
+cd "%OLD_DIR%\build\experimental\debug\x86\"
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X86.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental\steamclient.dll > %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X86.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental\steamclient.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X86.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\STEAMCLIENT.BLD @%CDS_DIR%\DEBUG_STEAMCLIENT_NON_X86.LKS
+
+:LK_STEAMCLIENT_LOADER_X86
+
+IF DEFINED SKIP_STEAMCLIENT_LOADER GOTO LK_X64
+
+REM Build steamclient_loader debug x86.
+cd "%OLD_DIR%\build\experimental_steamclient\steamclient_loader\debug\x86"
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\STEAMCLIENT_LOADER.BLD
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS
+echo /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x32.exe >> %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x32.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS )
+cl @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\STEAMCLIENT_LOADER.LKS @%CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X86.LKS
 cd %OLD_DIR%
+
+:LK_X64
+
 endlocal
+
 setlocal
+
+IF DEFINED SKIP_X64 GOTO LK_END
+
+"%PROTOC_X64_EXE%" -I.\dll\ --cpp_out=.\dll\ .\dll\net.proto
 call build_env_x64.bat
-SET OLD_DIR=%cd%
-cd build\experimental_steamclient\debug\x64
-cl %OLD_DIR%/dll/rtlgenrandom.c %OLD_DIR%/dll/rtlgenrandom.def
-cl /LD /I%OLD_DIR%/ImGui /I%OLD_DIR%/%PROTOBUF_X64_DIRECTORY%\include\ /DSTEAMCLIENT_DLL /DCONTROLLER_SUPPORT /DEMU_EXPERIMENTAL_BUILD /DEMU_OVERLAY /I%OLD_DIR%/overlay_experimental %OLD_DIR%/dll/*.cpp %OLD_DIR%/dll/*.cc %OLD_DIR%/detours/*.cpp %OLD_DIR%/controller/gamepad.c %OLD_DIR%/ImGui/*.cpp %OLD_DIR%/ImGui/backends/imgui_impl_dx*.cpp %OLD_DIR%/ImGui/backends/imgui_impl_win32.cpp %OLD_DIR%/ImGui/backends/imgui_impl_vulkan.cpp %OLD_DIR%/ImGui/backends/imgui_impl_opengl3.cpp %OLD_DIR%/ImGui/backends/imgui_win_shader_blobs.cpp %OLD_DIR%/overlay_experimental/*.cpp %OLD_DIR%/overlay_experimental/windows/*.cpp %OLD_DIR%/overlay_experimental/System/*.cpp "%OLD_DIR%/%PROTOBUF_X64_LIBRARY%" opengl32.lib Iphlpapi.lib Ws2_32.lib rtlgenrandom.lib Shell32.lib Winmm.lib /EHsc /MP12 /DDEBUG:FULL /Zi /Fd:%OLD_DIR%\debug\experimental_steamclient\steamclient64.pdb /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient64.dll
-cl %OLD_DIR%/steamclient_loader/*.cpp advapi32.lib user32.lib /EHsc /MP12 /Ox /DDEBUG:FULL /Zi /Fd:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x64.pdb /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x64.exe
+
+REM Non-STEAMCLIENT_DLL debug sc_deps.
+cd "%OLD_DIR%\build\experimental_steamclient\debug\x64\sc_deps"
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\PROTOBUF_X64.BLD @%CDS_DIR%\SC_DEPS.BLD
+IF EXIST %CDS_DIR%\DEBUG_SC_DEPS_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_SC_DEPS_X64.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_SC_DEPS_X64.LKS
+
+IF DEFINED SKIP_EXPERIMENTAL_BUILD GOTO LK_EXP_STEAMCLIENT_DLL_X64
+
+REM Link Non-STEAMCLIENT_DLL debug steam_api64.dll.
+cd "%OLD_DIR%\build\experimental\debug\x64\"
+IF EXIST %CDS_DIR%\DEBUG_STEAMAPI_NON_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMAPI_NON_X64.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental\steam_api64.dll > %CDS_DIR%\DEBUG_STEAMAPI_NON_X64.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental\steam_api64.pdb >> %CDS_DIR%\DEBUG_STEAMAPI_NON_X64.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X64.LKS @%CDS_DIR%\EXPERIMENTAL.BLD @%CDS_DIR%\EXPERIMENTAL.LKS @%CDS_DIR%\DEBUG_ALL_DEPS_X64.LKS @%CDS_DIR%\DEBUG_SC_DEPS_X64.LKS @%CDS_DIR%\DEBUG_STEAMAPI_NON_X64.LKS
+
+:LK_EXP_STEAMCLIENT_DLL_X64
+
+IF DEFINED SKIP_EXPERIMENTAL_STEAMCLIENT_BUILD GOTO LK_STEAMCLIENT_DLL_X64
+
+REM Link STEAMCLIENT_DLL debug steamclient64.dll
+cd "%OLD_DIR%\build\experimental_steamclient\debug\x64"
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_X64.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient64.dll > %CDS_DIR%\DEBUG_STEAMCLIENT_X64.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental_steamclient\steamclient64.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_X64.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\PROTOBUF_X64.LKS @%CDS_DIR%\EXPERIMENTAL_STEAMCLIENT.LKS @%CDS_DIR%\DEBUG_ALL_DEPS_X64.LKS @%CDS_DIR%\DEBUG_SC_DEPS_X64.LKS @%CDS_DIR%\DEBUG_STEAMCLIENT_X64.LKS
+
+:LK_STEAMCLIENT_DLL_X64
+
+IF DEFINED SKIP_EXPERIMENTAL_BUILD GOTO LK_STEAMCLIENT_LOADER_X64
+
+REM Link Non-STEAMCLIENT_DLL debug steamclient64.dll.
+cd "%OLD_DIR%\build\experimental\debug\x64\"
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X64.LKS )
+echo /link /OUT:%OLD_DIR%\debug\experimental\steamclient64.dll > %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X64.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental\steamclient64.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_NON_X64.LKS )
+cl /LD @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\STEAMCLIENT.BLD @%CDS_DIR%\DEBUG_STEAMCLIENT_NON_X64.LKS
+
+:LK_STEAMCLIENT_LOADER_X64
+
+IF DEFINED SKIP_STEAMCLIENT_LOADER GOTO LK_END
+
+REM Build steamclient_loader debug x64.
+cd "%OLD_DIR%\build\experimental_steamclient\steamclient_loader\debug\x64"
+cl /c @%CDS_DIR%\DEBUG.BLD @%CDS_DIR%\STEAMCLIENT_LOADER.BLD
+IF EXIST %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS ( DEL /F /Q %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS )
+where "*.obj" > %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS
+echo /link /OUT:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x64.exe >> %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS
+IF NOT EXIST %OLD_DIR%\CI_BUILD.TAG ( echo /link /PDB:%OLD_DIR%\debug\experimental_steamclient\steamclient_loader_x64.pdb >> %CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS )
+cl @%CDS_DIR%\DEBUG.LKS @%CDS_DIR%\STEAMCLIENT_LOADER.LKS @%CDS_DIR%\DEBUG_STEAMCLIENT_LOADER_X64.LKS
 cd %OLD_DIR%
+
+:LK_END
+
 endlocal
+
+copy Readme_experimental.txt debug\experimental\Readme.txt
+copy steamclient_loader\ColdClientLoader.ini debug\experimental_steamclient\
+copy Readme_experimental_steamclient.txt debug\experimental_steamclient\Readme.txt
