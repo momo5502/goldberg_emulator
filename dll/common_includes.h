@@ -174,6 +174,7 @@ inline void reset_LastError()
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <typeinfo>
 
 #include <vector>
 #include <map>
