@@ -66,11 +66,16 @@ build_windows:
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/48db8f434a193aae872279dc4f5dde6a/sdk_standalone.7z'
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/0119304e030098b4821d73170fe52084/protobuf_x64-windows-static.7z'
       - wget 'https://gitlab.com/Mr_Goldberg/goldberg_emulator/uploads/4185a97ab363ddc1859127e59ec68581/protobuf_x86-windows-static.7z'
-      # Ancient CI version of wine doesn't support the where.exe cmd. (It's a stub.) Use the version from wine-10.0.
-      - wget 'https://dl.fedoraproject.org/pub/fedora/linux/updates/41/Everything/x86_64/Packages/w/wine-core-10.0-1.fc41.i686.rpm'
       - mkdir wine
-      - echo './usr/lib/wine/i386-windows/where.exe' > extract.txt; rpm2cpio wine-core-10.0-1.fc41.i686.rpm | cpio -ivdE extract.txt; rm -f extract.txt
-      - /usr/bin/mv -f ./usr/lib/wine/i386-windows/where.exe wine/; rm -rf ./usr/
+      # Ancient CI version of wine doesn't support the where.exe cmd. (It's a stub.) Use the version from wine-10.1.
+      # Note: This can use the fedora archive once f40 goes eol (~ 5/28/2025) and wine 10.x gets locked into their archive server.
+      # (Can't use it before then due to newer wine point releases changing the URL....)
+      #- wget 'https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/39/Everything/x86_64/os/Packages/w/wine-core-10.0-1.fc41.i686.rpm'
+      #- echo './usr/lib/wine/i386-windows/where.exe' > extract.txt; rpm2cpio wine-core-10.0-1.fc41.i686.rpm | cpio -ivdE extract.txt; rm -f extract.txt
+      #- /usr/bin/mv -f ./usr/lib/wine/i386-windows/where.exe wine/; rm -rf ./usr/
+      - wget 'https://dl.winehq.org/wine-builds/fedora/41/x86_64/wine-devel-10.0.0-1.1.x86_64.rpm'
+      - echo './opt/wine-devel/lib64/wine/i386-windows/where.exe' > extract.txt; rpm2cpio wine-devel-10.0.0-1.1.x86_64.rpm | cpio -ivdE extract.txt; rm -f extract.txt
+      - /usr/bin/mv -f ./opt/wine-devel/lib64/wine/i386-windows/where.exe wine/; rm -rf ./opt/
       - /usr/bin/cp -f wine/where.exe /usr/lib/wine/i386-windows/where.exe; /usr/bin/cp -f wine/where.exe /usr/lib64/wine/x86_64-windows/where.exe
       - 7za x protobuf_x86-windows-static.7z -oprotobuf_x86-windows-static
       - 7za x protobuf_x64-windows-static.7z -oprotobuf_x64-windows-static
