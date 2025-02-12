@@ -2062,6 +2062,9 @@ int Steam_Overlay::display_imgui_image(uint32_t displayImageType,
                     }
                 }
             }
+            if (ret != 1) {
+                ImGui::Dummy(image_size);
+            }
             break;
         case displayImageTypeAvatar:
             // User Avatars
