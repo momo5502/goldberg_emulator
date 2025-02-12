@@ -151,10 +151,21 @@ void load_achievements_db()
     for (auto & it : defined_achievements) {
         name = "";
         try {
-            name = static_cast<std::string const&>(it["name"]);
+            auto name_it = it.find("name");
+            if (name_it != it.end()) {
+                name = static_cast<std::string const&>(*name_it);
+            }
             if (name.length() > 0) {
-                std::string normal = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(it["icon"]);
-                std::string gray = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(it["icongray"]);
+                auto normal_it = it.find("icon");
+                auto gray_it = it.find("icon_gray");
+                std::string normal = "";
+                std::string gray = "";
+                if (normal_it != it.end()) {
+                    normal = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(*normal_it);
+                }
+                if (gray_it != it.end()) {
+                    gray = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(*gray_it);
+                }
                 if (normal.length() > 0 && gray.length() > 0) {
                     uint32 normal_height = 0;
                     uint32 normal_width = 0;
@@ -227,10 +238,10 @@ void load_achievements_db()
                 count,
                 corrupt_count,
                 bad_count);
-    PRINT_DEBUG("ignored %" PRIu64 " missing normal achivement images.\nignored %" PRIu64 " missing gray achivement images.\n",
+    PRINT_DEBUG("ignored %" PRIu64 " missing normal achievement images.\nignored %" PRIu64 " missing gray achievement images.\n",
                 missing_normal_images,
                 missing_gray_images);
-    PRINT_DEBUG("ignored %" PRIu64 " unreadable normal achivement images.\nignored %" PRIu64 " unreadable gray achivement images.\n",
+    PRINT_DEBUG("ignored %" PRIu64 " unreadable normal achievement images.\nignored %" PRIu64 " unreadable gray achievement images.\n",
                 unreadable_normal_images,
                 unreadable_gray_images);
 }
