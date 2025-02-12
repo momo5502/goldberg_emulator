@@ -25,13 +25,13 @@ BOOLEAN (NTAPI *real_RtlGenRandom)(PVOID,ULONG) = NULL;
 static void
 randombytes(char * const buf, const size_t size)
 {
-    PRINT_DEBUG("%s %p %zu.\n", "mine_RtlGenRandom() called.", buf, size);
+    PRINT_DEBUG("%s %p %" PRI_ZU ".\n", "mine_RtlGenRandom() called.", buf, size);
     if (hadvapi32 == NULL) {
         hadvapi32 = GetModuleHandleW(L"advapi32.dll");
         if (hadvapi32 == NULL) {
             PRINT_DEBUG("%s.\n", "GetModuleHandle() failed for advapi32.dll");
         }
-        PRINT_DEBUG("advapi32.dll handle: 0x%x.\n", hadvapi32);
+        PRINT_DEBUG("advapi32.dll handle: 0x%p.\n", hadvapi32);
     }
     if (hadvapi32 != NULL &&
         real_RtlGenRandom == NULL) {
