@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_HTMLSURFACE_H
+#define INCLUDED_STEAM_HTMLSURFACE_H
+
 class Steam_HTMLsurface :
 public ISteamHTMLSurface001,
 public ISteamHTMLSurface002,
@@ -337,3 +340,5 @@ void FileLoadDialogResponse( HHTMLBrowser unBrowserHandle, const char **pchSelec
 }
 
 };
+
+#endif // INCLUDED_STEAM_HTMLSURFACE_H

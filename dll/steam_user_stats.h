@@ -85,6 +85,8 @@ private:
     nlohmann::json defined_achievements;
     nlohmann::json user_achievements;
     std::vector<std::string> sorted_achievement_names;
+    std::map<std::string, int32> achievement_image_data_normal;
+    std::map<std::string, int32> achievement_image_data_gray;
     std::map<std::string, int32> stats_cache_int;
     std::map<std::string, float> stats_cache_float;
 
@@ -112,10 +114,136 @@ nlohmann::detail::iter_impl<nlohmann::json> defined_achievements_find(std::strin
         });
 }
 
+int32 achievement_image_data_normal_find(std::string key) {
+    for (auto & it : achievement_image_data_normal) {
+        try {
+            if (it.first == key) {
+                return it.second;
+            }
+        } catch (...) {}
+    }
+    return 0;
+}
+
+int32 achievement_image_data_gray_find(std::string key) {
+    for (auto & it : achievement_image_data_gray) {
+        try {
+            if (it.first == key) {
+                return it.second;
+            }
+        } catch (...) {}
+    }
+    return 0;
+}
+
 void load_achievements_db()
 {
+    uint64 count = 0;
+    uint64 bad_count = 0;
+    uint64 corrupt_count = 0;
+    uint64 missing_normal_images = 0;
+    uint64 missing_gray_images = 0;
+    uint64 unreadable_normal_images = 0;
+    uint64 unreadable_gray_images = 0;
+    std::string name = "";
     std::string file_path = Local_Storage::get_game_settings_path() + achievements_user_file;
     local_storage->load_json(file_path, defined_achievements);
+    for (auto & it : defined_achievements) {
+        name = "";
+        try {
+            auto name_it = it.find("name");
+            if (name_it != it.end()) {
+                name = static_cast<std::string const&>(*name_it);
+            }
+            if (name.length() > 0) {
+                auto normal_it = it.find("icon");
+                auto gray_it = it.find("icon_gray");
+                std::string normal = "";
+                std::string gray = "";
+                if (normal_it != it.end()) {
+                    normal = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(*normal_it);
+                }
+                if (gray_it != it.end()) {
+                    gray = Local_Storage::get_game_settings_path() + static_cast<std::string const&>(*gray_it);
+                }
+                if (normal.length() > 0 && gray.length() > 0) {
+                    uint32 normal_height = 0;
+                    uint32 normal_width = 0;
+                    uint32 gray_height = 0;
+                    uint32 gray_width = 0;
+                    std::vector<image_pixel_t> normal_pixels(local_storage->load_image(normal, &normal_width, &normal_height));
+                    std::vector<image_pixel_t> gray_pixels(local_storage->load_image(gray, &gray_width, &gray_height));
+                    if (normal_width > 0 && normal_height > 0 &&
+                        gray_width > 0 && gray_height > 0) {
+                        std::string normalStr;
+                        std::string grayStr;
+                        normalStr.reserve(sizeof(uint32_t) * normal_width * normal_height);
+                        grayStr.reserve(sizeof(uint32_t) * gray_width * gray_height);
+                        for (auto & pix : normal_pixels) {
+                            normalStr += pix.channels.r;
+                            normalStr += pix.channels.g;
+                            normalStr += pix.channels.b;
+                            normalStr += pix.channels.a;
+                        }
+                        for (auto & pix : gray_pixels) {
+                            grayStr += pix.channels.r;
+                            grayStr += pix.channels.g;
+                            grayStr += pix.channels.b;
+                            grayStr += pix.channels.a;
+                        }
+                        achievement_image_data_normal[name] = settings->add_image(normalStr, normal_width, normal_height);
+                        achievement_image_data_gray[name] = settings->add_image(grayStr, gray_width, gray_height);
+                        count++;
+                    } else {
+                        corrupt_count++;
+                        if (normal_width <= 0 || normal_height <= 0)
+                            unreadable_normal_images++;
+                        if (gray_width <= 0 || gray_height <= 0)
+                            unreadable_gray_images++;
+                        PRINT_DEBUG("%s %s %s.\n",
+                                    "Unable to load images for achievement",
+                                    name.c_str(),
+                                    "unable to get resolution from images.");
+                    }
+                } else {
+                    corrupt_count++;
+                    if (normal.length() <= 0)
+                        missing_normal_images++;
+                    if (gray.length() <= 0)
+                        missing_gray_images++;
+                    PRINT_DEBUG("%s %s %s.\n",
+                                "Unable to load images for achievement",
+                                name.c_str(),
+                                "an image path is not configured");
+                }
+            } else {
+                bad_count++;
+                PRINT_DEBUG("%s %s %s %" PRIu64 " %s.\n",
+                            "Invalid achievement json at",
+                            file_path.c_str(),
+                            "for achievement number",
+                            count + corrupt_count + bad_count + 1,
+                            "is invalid");
+            }
+        } catch (std::exception &e) {
+            bad_count++;
+            PRINT_DEBUG("Loading image data for achievement %s failed. Exception type: %s Reason: %s.\n",
+                        (name.length() > 0) ? name.c_str() : "ERROR: NAME PARSING FROM JSON FAILED",
+                        typeid(e).name(),
+                        e.what());
+        }
+    }
+
+    PRINT_DEBUG("loaded %" PRIu64 " achievement images.\npartial loaded %" PRIu64 " achievements.\nskipped %" PRIu64 " invalid achievements.\n",
+                count,
+                corrupt_count,
+                bad_count);
+    PRINT_DEBUG("ignored %" PRIu64 " missing normal achievement images.\nignored %" PRIu64 " missing gray achievement images.\n",
+                missing_normal_images,
+                missing_gray_images);
+    PRINT_DEBUG("ignored %" PRIu64 " unreadable normal achievement images.\nignored %" PRIu64 " unreadable gray achievement images.\n",
+                unreadable_normal_images,
+                unreadable_gray_images);
 }
 
 void load_achievements()
@@ -590,10 +718,18 @@ bool StoreStats()
 int GetAchievementIcon( const char *pchName )
 {
     PRINT_DEBUG("GetAchievementIcon\n");
-    if (pchName == nullptr) return 0;
+    int ret = 0;
+    if (pchName == nullptr) return ret;
     std::lock_guard<std::recursive_mutex> lock(global_mutex);
 
-    return 0;
+    bool achieved = false;
+    if ((GetAchievementAndUnlockTime(pchName, &achieved, NULL) == true) && (achieved == true)) {
+        ret = achievement_image_data_normal_find(pchName);
+    } else {
+        ret = achievement_image_data_gray_find(pchName);
+    }
+
+    return ret;
 }
 
 

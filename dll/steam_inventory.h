@@ -17,6 +17,9 @@
 
 #include "base.h" // For SteamItemDef_t
 
+#ifndef INCLUDED_STEAM_INVENTORY_H
+#define INCLUDED_STEAM_INVENTORY_H
+
 struct Steam_Inventory_Requests {
     double timeout = 0.1;
     bool done = false;
@@ -964,3 +967,5 @@ void RunCallbacks()
 }
 
 };
+
+#endif // INCLUDED_STEAM_INVENTORY_H

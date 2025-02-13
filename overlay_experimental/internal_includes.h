@@ -38,6 +38,8 @@
 #include <spdlog/spdlog.h>
 #endif
 
+#define PRINT_DEBUG_NO_LINENUM(a, ...) do {FILE *t = fopen("STEAM_LOG.txt", "a"); fprintf(t, a, __VA_ARGS__); fclose(t);} while (0)
+
 #ifndef SPDLOG_TRACE
 #define SPDLOG_TRACE(x, ...) PRINT_DEBUG(x "\n", __VA_ARGS__)
 #endif
@@ -46,6 +48,9 @@
 #endif
 #ifndef SPDLOG_INFO
 #define SPDLOG_INFO(x, ...) PRINT_DEBUG(x "\n", __VA_ARGS__)
+#endif
+#ifndef SPDLOG_INFO_NO_NEWLINE
+#define SPDLOG_INFO_NO_NEWLINE(x, ...) PRINT_DEBUG_NO_LINENUM(x, __VA_ARGS__)
 #endif
 #ifndef SPDLOG_WARN
 #define SPDLOG_WARN(x, ...) PRINT_DEBUG(x "\n", __VA_ARGS__)

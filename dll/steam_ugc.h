@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_UGC_H
+#define INCLUDED_STEAM_UGC_H
+
 struct UGC_query {
     UGCQueryHandle_t handle;
     std::set<PublishedFileId_t> return_only;
@@ -600,13 +603,13 @@ bool RemoveItemPreview( UGCUpdateHandle_t handle, uint32 index )
 
 bool AddContentDescriptor( UGCUpdateHandle_t handle, EUGCContentDescriptorID descid )
 {
-    PRINT_DEBUG("Steam_UGC::AddContentDescriptor %llu %u\n", handle, index);
+    PRINT_DEBUG("Steam_UGC::AddContentDescriptor %llu %u\n", handle, descid);
     return false;
 }
 
 bool RemoveContentDescriptor( UGCUpdateHandle_t handle, EUGCContentDescriptorID descid )
 {
-    PRINT_DEBUG("Steam_UGC::RemoveContentDescriptor %llu %u\n", handle, index);
+    PRINT_DEBUG("Steam_UGC::RemoveContentDescriptor %llu %u\n", handle, descid);
     return false;
 }
 
@@ -903,3 +906,5 @@ SteamAPICall_t GetWorkshopEULAStatus()
 
 
 };
+
+#endif // INCLUDED_STEAM_UGC_H

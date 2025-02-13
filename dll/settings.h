@@ -65,21 +65,45 @@ struct Controller_Settings {
     std::map<std::string, std::map<std::string, std::pair<std::set<std::string>, std::string>>> action_set_layers;
 };
 
+enum Settings_Background_Task_IDs {
+    NOTIFY_AVATAR_IMAGE = 0
+};
+
+struct Settings_Background_Task {
+    enum Settings_Background_Task_IDs id;
+    void * arg;
+};
+
 class Settings {
     CSteamID steam_id;
     CGameID game_id;
-    std::string name, language;
+    std::string name, language, ui_notification_position;
     CSteamID lobby_id;
+    uint32 preferred_network_image_type;
+    bool background_thread_exit;
+    std::vector<Settings_Background_Task> background_tasks;
+    std::thread background_monitor_thread;
+    std::recursive_mutex background_thread_mutex;
+    std::atomic<bool> settings_parser_done;
 
     bool unlockAllDLCs;
     bool offline;
+    bool showAchievementDescOnUnlock;
+    bool showAchievementHiddenUnearned;
     std::vector<struct DLC_entry> DLCs;
     std::vector<struct Mod_entry> mods;
     std::map<AppId_t, std::string> app_paths;
     std::map<std::string, Leaderboard_config> leaderboards;
     std::map<std::string, Stat_config> stats;
+    std::map<int, int> profile_images;
     bool create_unknown_leaderboards;
     uint16 port;
+    int next_free;
+
+    int find_next_free_image_ref();
+    void create_background_notify_task(Settings_Background_Task_IDs id, void *arg);
+    static void background_monitor_entry(Settings * settings);
+    void background_monitor();
 
 public:
 #ifdef LOBBY_CONNECT
@@ -87,8 +111,10 @@ public:
 #else
     static const bool is_lobby_connect = false;
 #endif
+
     static std::string sanitize(std::string name);
     Settings(CSteamID steam_id, CGameID game_id, std::string name, std::string language, bool offline);
+    ~Settings();
     CSteamID get_local_steam_id();
     CGameID get_local_game_id();
     const char *get_local_name();
@@ -102,6 +128,9 @@ public:
     bool is_offline() {return offline; }
     uint16 get_port() {return port;}
     void set_port(uint16 port) { this->port = port;}
+
+    bool is_settings_parser_done() { return this->settings_parser_done; }
+    void set_settings_parser_done(const bool done) { this->settings_parser_done = done; }
 
     //DLC stuff
     void unlockAllDLC(bool value);
@@ -132,6 +161,9 @@ public:
     //custom broadcasts
     std::set<IP_PORT> custom_broadcasts;
 
+    //custom master server
+    std::set<IP_PORT> custom_master_server;
+
     //stats
     std::map<std::string, Stat_config> getStats() { return stats; }
     void setStatDefiniton(std::string name, struct Stat_config stat_config) {stats[ascii_to_lowercase(name)] = stat_config; }
@@ -140,8 +172,17 @@ public:
     std::set<uint64> subscribed_groups;
 
     //images
+    std::recursive_mutex images_mutex;
     std::map<int, struct Image_Data> images;
+    int remove_image(int ref);
+    int replace_image(int ref, std::string data, uint32 width, uint32 height);
     int add_image(std::string data, uint32 width, uint32 height);
+    int get_image(int ref, std::string * data, uint32 * width, uint32 * height);
+    int get_profile_image(int eAvatarSize);
+    int set_profile_image(int eAvatarSize, Image_Data * image);
+    int set_profile_image(int eAvatarSize, int reference, bool notify);
+    int get_preferred_network_image_type() { return this->preferred_network_image_type; }
+    void set_preferred_network_image_type(int new_type);
 
     //controller
     struct Controller_Settings controller_settings;
@@ -167,6 +208,16 @@ public:
 
     //warn people who use local save
     bool warn_local_save = false;
+
+    //achievements
+    bool get_show_achievement_desc_on_unlock() { return showAchievementDescOnUnlock; }
+    void set_show_achievement_desc_on_unlock(bool set) { this->showAchievementDescOnUnlock = set; }
+    bool get_show_achievement_hidden_unearned() { return showAchievementHiddenUnearned; }
+    void set_show_achievement_hidden_unearned(bool set) { this->showAchievementHiddenUnearned = set; }
+
+    //UI
+    std::string get_ui_notification_position();
+    void set_ui_notification_position(char * pos);
 };
 
 #endif

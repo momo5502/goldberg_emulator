@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_REMOTE_STORAGE_H
+#define INCLUDED_STEAM_REMOTE_STORAGE_H
+
 struct Async_Read {
 	SteamAPICall_t api_call;
 	uint32 offset;
@@ -791,3 +794,5 @@ bool EndFileWriteBatch()
 
 
 };
+
+#endif // INCLUDED_STEAM_REMOTE_STORAGE_H

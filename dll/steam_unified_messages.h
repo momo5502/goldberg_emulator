@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_UNIFIED_MESSAGES_H
+#define INCLUDED_STEAM_UNIFIED_MESSAGES_H
+
 class Steam_Unified_Messages :
 public ISteamUnifiedMessages
 {
@@ -121,3 +124,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_UNIFIED_MESSAGES_H

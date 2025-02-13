@@ -19,6 +19,9 @@
 
 #include "appticket.h"
 
+#ifndef INCLUDED_STEAM_USER_H
+#define INCLUDED_STEAM_USER_H
+
 class Steam_User :
 public ISteamUser009,
 public ISteamUser010,
@@ -532,3 +535,5 @@ bool BSetDurationControlOnlineState( EDurationControlOnlineState eNewState )
 }
 
 };
+
+#endif // INCLUDED_STEAM_USER_H

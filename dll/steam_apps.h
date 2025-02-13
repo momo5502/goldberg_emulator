@@ -1,5 +1,8 @@
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_APPS_H
+#define INCLUDED_STEAM_APPS_H
+
 class Steam_Apps :
 public ISteamApps001,
 public ISteamApps002,
@@ -110,3 +113,5 @@ public:
 	// set current DLC AppID being played (or 0 if none). Allows Steam to track usage of major DLC extensions
     bool SetDlcContext( AppId_t nAppID );
 };
+
+#endif // INCLUDED_STEAM_APPS_H

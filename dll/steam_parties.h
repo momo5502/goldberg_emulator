@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_PARTIES_H
+#define INCLUDED_STEAM_PARTIES_H
+
 class Steam_Parties :
 public ISteamParties
 {
@@ -192,3 +195,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_PARTIES_H

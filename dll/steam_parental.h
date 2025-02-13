@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_PARENTAL_H
+#define INCLUDED_STEAM_PARENTAL_H
+
 class Steam_Parental : public ISteamParentalSettings
 {
 public:
@@ -29,3 +32,5 @@ public:
 	bool BIsFeatureBlocked( EParentalFeature eFeature );
 	bool BIsFeatureInBlockList( EParentalFeature eFeature );
 };
+
+#endif // INCLUDED_STEAM_PARENTAL_H

@@ -110,7 +110,7 @@ static void load_gamecontroller_settings(Settings *settings)
             }
 
             settings->controller_settings.action_sets[action_set_name] = button_pairs;
-            PRINT_DEBUG("Added %u action names to %s\n", button_pairs.size(), action_set_name.c_str());
+            PRINT_DEBUG("Added %" PRI_ZU " action names to %s\n", button_pairs.size(), action_set_name.c_str());
         }
     }
 
@@ -211,10 +211,45 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     load_custom_broadcasts(local_storage->get_global_settings_path() + "custom_broadcasts.txt", custom_broadcasts);
     load_custom_broadcasts(Local_Storage::get_game_settings_path() + "custom_broadcasts.txt", custom_broadcasts);
 
+    // Custom master server
+    std::set<IP_PORT> custom_master_server;
+    load_custom_broadcasts(local_storage->get_global_settings_path() + "custom_master_server.txt", custom_master_server);
+    load_custom_broadcasts(Local_Storage::get_game_settings_path() + "custom_master_server.txt", custom_master_server);
+
     // Acount name
-    char name[32] = {};
+    char name[32] = { '\0' };
     if (local_storage->get_data_settings("account_name.txt", name, sizeof(name) - 1) <= 0) {
-        strcpy(name, DEFAULT_NAME);
+        PRINT_DEBUG("%s.\n", "Attempting to set steam user name from system user name");
+#if defined(STEAM_WIN32)
+        DWORD username_dword = 32;
+        wchar_t username[32] = { '\0' };
+        if (GetUserNameW((wchar_t*)&username, &username_dword) == TRUE) {
+            std::wstring username_wstr(username);
+            std::string username_str = utf8_encode(username_wstr);
+            size_t username_len = username_str.length();
+            if (username_len > 0 &&
+                username_len < 31) {
+                memcpy(&name, username_str.c_str(), username_len);
+                name[31] = '\0';
+            }
+        }
+#else
+        char * env_username = getenv("USER");
+        if (env_username != NULL) {
+            size_t username_len = strlen(env_username);
+            if (username_len > 0 &&
+                username_len < 31) {
+                memcpy(&name, env_username, username_len);
+                name[31] = '\0';
+            }
+        }
+#endif
+        char empty_name[32] = { '\0' };
+        if (memcmp(name, empty_name, 32) == 0) {
+            PRINT_DEBUG("%s %s.\n", "Setting steam user name to", DEFAULT_NAME);
+            strcpy(name, DEFAULT_NAME);
+        }
+        PRINT_DEBUG("Username: %s.\n", name);
         local_storage->store_data_settings("account_name.txt", name, strlen(name));
     }
 
@@ -223,6 +258,13 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     if (local_storage->get_data_settings("language.txt", language, sizeof(language) - 1) <= 0) {
         strcpy(language, DEFAULT_LANGUAGE);
         local_storage->store_data_settings("language.txt", language, strlen(language));
+    }
+
+    // UI Notification Position.
+    char notification_position[32] = {};
+    if (local_storage->get_data_settings("ui_notification_position.txt", notification_position, sizeof(notification_position) - 1) <= 0) {
+        strcpy(notification_position, DEFAULT_UI_NOTIFICATION_POSITION);
+        local_storage->store_data_settings("ui_notification_position.txt", notification_position, strlen(notification_position));
     }
 
     // Steam ID
@@ -258,6 +300,12 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
         char temp_text[32] = {};
         snprintf(temp_text, sizeof(temp_text), "%llu", steam_id);
         local_storage->store_data_settings("user_steam_id.txt", temp_text, strlen(temp_text));
+    }
+
+    if (Local_Storage::is_directory(Local_Storage::get_user_appdata_path().append(PATH_SEPARATOR).append("minidumps")) == false) {
+        local_storage->store_data_settings(std::string("minidumps").append(PATH_SEPARATOR).append("dummy.txt"),
+                                           " ",
+                                           sizeof(" ") / sizeof(char));
     }
 
     std::set<std::string> supported_languages;
@@ -299,9 +347,41 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     bool disable_networking = false;
     bool disable_overlay = false;
     bool disable_lobby_creation = false;
+    bool enable_achievement_desc_on_unlock = false;
+    bool enable_displaying_hidden_achievements = false;
     int build_id = 10;
 
     bool warn_forced = false;
+
+    Image_Data profile_small {0, 0, std::string()};
+    Image_Data profile_medium {0, 0, std::string()};
+    Image_Data profile_large {0, 0, std::string()};
+
+    {
+        std::string steam_settings_path = local_storage->get_global_settings_path();
+
+        std::vector<std::string> paths = local_storage->get_filenames_path(steam_settings_path);
+        for (auto & p: paths) {
+            PRINT_DEBUG("global settings path %s\n", p.c_str());
+            if (p == "enable_achievement_desc_on_unlock.txt") {
+                enable_achievement_desc_on_unlock = true;
+            } else if (p == "enable_displaying_hidden_achievements.txt") {
+                enable_displaying_hidden_achievements = true;
+            } else if (p == "avatar_small.jpg") {
+                profile_small.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_small.width, &profile_small.height));
+            } else if (p == "avatar_medium.jpg") {
+                profile_medium.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_medium.width, &profile_medium.height));
+            } else if (p == "avatar_large.jpg") {
+                profile_large.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_large.width, &profile_large.height));
+            } else if (p == "avatar_small.png") {
+                profile_small.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_small.width, &profile_small.height));
+            } else if (p == "avatar_medium.png") {
+                profile_medium.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_medium.width, &profile_medium.height));
+            } else if (p == "avatar_large.png") {
+                profile_large.data = convert_vector_image_pixel_t_to_std_string(local_storage->load_image(steam_settings_path + p, &profile_large.width, &profile_large.height));
+            }
+        }
+    }
 
     {
         std::string steam_settings_path = Local_Storage::get_game_settings_path();
@@ -317,10 +397,20 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
                 disable_overlay = true;
             } else if (p == "disable_lobby_creation.txt") {
                 disable_lobby_creation = true;
+            } else if (p == "enable_achievement_desc_on_unlock.txt") {
+                enable_achievement_desc_on_unlock = true;
+            } else if (p == "enable_displaying_hidden_achievements.txt") {
+                enable_displaying_hidden_achievements = true;
             } else if (p == "force_language.txt") {
                 int len = Local_Storage::get_file_data(steam_settings_path + "force_language.txt", language, sizeof(language) - 1);
                 if (len > 0) {
                     language[len] = 0;
+                    warn_forced = true;
+                }
+            } else if (p == "force_ui_notification_position.txt") {
+                int len = Local_Storage::get_file_data(steam_settings_path + "force_ui_notification_position.txt", notification_position, sizeof(notification_position) - 1);
+                if (len > 0) {
+                    notification_position[len] = 0;
                     warn_forced = true;
                 }
             } else if (p == "force_steamid.txt") {
@@ -359,6 +449,8 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->set_port(port);
     settings_client->custom_broadcasts = custom_broadcasts;
     settings_server->custom_broadcasts = custom_broadcasts;
+    settings_client->custom_master_server = custom_master_server;
+    settings_server->custom_master_server = custom_master_server;
     settings_client->disable_networking = disable_networking;
     settings_server->disable_networking = disable_networking;
     settings_client->disable_overlay = disable_overlay;
@@ -373,6 +465,30 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     settings_server->warn_local_save = local_save;
     settings_client->supported_languages = supported_languages;
     settings_server->supported_languages = supported_languages;
+    settings_client->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
+    settings_server->set_show_achievement_desc_on_unlock(enable_achievement_desc_on_unlock);
+    settings_client->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
+    settings_server->set_show_achievement_hidden_unearned(enable_displaying_hidden_achievements);
+    settings_client->set_ui_notification_position(notification_position);
+    settings_server->set_ui_notification_position(notification_position);
+    if (profile_small.data.length() > 0 && profile_small.width > 0 && profile_small.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize32x32, &profile_small);
+        settings_server->set_profile_image(k_EAvatarSize32x32, &profile_small);
+    } else {
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Small user avatar image not defined.", profile_small.data.length(), profile_small.width, profile_small.height);
+    }
+    if (profile_medium.data.length() > 0 && profile_medium.width > 0 && profile_medium.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize64x64, &profile_medium);
+        settings_server->set_profile_image(k_EAvatarSize64x64, &profile_medium);
+    } else {
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Medium user avatar image not defined.", profile_medium.data.length(), profile_medium.width, profile_medium.height);
+    }
+    if (profile_large.data.length() > 0 && profile_large.width > 0 && profile_large.height > 0) {
+        settings_client->set_profile_image(k_EAvatarSize184x184, &profile_large);
+        settings_server->set_profile_image(k_EAvatarSize184x184, &profile_large);
+    } else {
+        PRINT_DEBUG("%s %" PRI_ZU " %d %d\n", "Large user avatar image not defined.", profile_large.data.length(), profile_large.width, profile_large.height);
+    }
 
     {
         std::string dlc_config_path = Local_Storage::get_game_settings_path() + "DLC.txt";
@@ -621,6 +737,9 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
 
     load_gamecontroller_settings(settings_client);
 
+    settings_client->set_settings_parser_done(true);
+    settings_server->set_settings_parser_done(true);
+
     *settings_client_out = settings_client;
     *settings_server_out = settings_server;
     *local_storage_out = local_storage;
@@ -629,8 +748,33 @@ uint32 create_localstorage_settings(Settings **settings_client_out, Settings **s
     return appid;
 }
 
-void save_global_settings(Local_Storage *local_storage, char *name, char *language)
+void save_global_settings(Local_Storage *local_storage, Settings * client_settings)
 {
-    local_storage->store_data_settings("account_name.txt", name, strlen(name));
-    local_storage->store_data_settings("language.txt", language, strlen(language));
+    if ((local_storage != nullptr) && (client_settings != nullptr)) {
+        std::string name = client_settings->get_local_name();
+        std::string language = client_settings->get_language();
+        std::string ui_notif_pos = client_settings->get_ui_notification_position();
+
+        local_storage->store_data_settings("account_name.txt", (char*)name.c_str(), name.length());
+        local_storage->store_data_settings("language.txt", (char*)language.c_str(), language.length());
+        local_storage->store_data_settings("ui_notification_position.txt", (char*)ui_notif_pos.c_str(), ui_notif_pos.length());
+        if (client_settings->get_show_achievement_desc_on_unlock()) {
+            if (local_storage->data_settings_exists("enable_achievement_desc_on_unlock.txt") != true) {
+                local_storage->store_data_settings("enable_achievement_desc_on_unlock.txt", " ", sizeof(" "));
+            }
+        } else {
+            if (local_storage->data_settings_exists("enable_achievement_desc_on_unlock.txt") == true) {
+                local_storage->delete_data_settings("enable_achievement_desc_on_unlock.txt");
+            }
+        }
+        if (client_settings->get_show_achievement_hidden_unearned()) {
+            if (local_storage->data_settings_exists("enable_displaying_hidden_achievements.txt") != true) {
+                local_storage->store_data_settings("enable_displaying_hidden_achievements.txt", " ", sizeof(" "));
+            }
+        } else {
+            if (local_storage->data_settings_exists("enable_displaying_hidden_achievements.txt") == true) {
+                local_storage->delete_data_settings("enable_displaying_hidden_achievements.txt");
+            }
+        }
+    }
 }

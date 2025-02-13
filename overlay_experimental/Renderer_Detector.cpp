@@ -48,6 +48,12 @@
         #undef GetModuleHandle
     #endif
 
+    // Minimal timeout for detecting the real rendering API when multiple are used.
+    #define MIN_RENDER_DETECT_TIMEOUT 1
+    // Variance is in milliseconds. 1000 (one second) / 24 (FPS) = Aprox. 41.66 Milliseconds between frames.)
+    #define MAX_RENDER_DETECT_FRAME_TIMING_VARIANCE 42
+    #define GET_RENDERER_DETECT_TIMEOUT ((MAX_RENDERER_API_DETECT_TIMEOUT > MIN_RENDER_DETECT_TIMEOUT) ? MAX_RENDERER_API_DETECT_TIMEOUT : MIN_RENDER_DETECT_TIMEOUT) * 1000
+
 #elif defined(__linux__) || defined(linux)
     #define RENDERERDETECTOR_OS_LINUX
 
@@ -105,6 +111,15 @@ private:
     decltype(::SwapBuffers)* wglSwapBuffers;
     decltype(::vkQueuePresentKHR)* vkQueuePresentKHR;
 
+    std::mutex timing_detect_mutex;
+    std::chrono::time_point<std::chrono::steady_clock> initial_hook_detect_time;
+    std::chrono::time_point<std::chrono::steady_clock> d3d_hook_detect_time;
+    std::chrono::time_point<std::chrono::steady_clock> ogl_hook_detect_time;
+    std::chrono::time_point<std::chrono::steady_clock> vkn_hook_detect_time;
+    std::chrono::steady_clock::duration d3d_frame_duration;
+    std::chrono::steady_clock::duration ogl_frame_duration;
+    std::chrono::steady_clock::duration vkn_frame_duration;
+
     bool dxgi_hooked;
     bool dxgi1_2_hooked;
     bool dx12_hooked;
@@ -113,6 +128,7 @@ private:
     bool dx9_hooked;
     bool opengl_hooked;
     bool vulkan_hooked;
+    bool wine_found;
 
     DX12_Hook* dx12_hook;
     DX11_Hook* dx11_hook;
@@ -135,6 +151,7 @@ private:
         dx9_hooked(false),
         opengl_hooked(false),
         vulkan_hooked(false),
+        wine_found(false),
         renderer_hook(nullptr),
         dx9_hook(nullptr),
         dx10_hook(nullptr),
@@ -257,6 +274,8 @@ private:
 
     void DeduceDXVersionFromSwapChain(IDXGISwapChain* pSwapChain)
     {
+        PRINT_DEBUG("%s.\n",
+                    "Renderer_Detector DeduceDXVersionFromSwapChain");
         IUnknown* pDevice = nullptr;
         if (Inst()->dx12_hooked)
         {
@@ -294,21 +313,154 @@ private:
         }
     }
 
+    static bool CheckD3DHookDetectTimings()
+    {
+        auto inst = Inst();
+        bool ret = false;
+
+        // It appears that (NVidia at least) calls IDXGISwapChain when calling OpenGL or Vulkan SwapBuffers.
+        //
+        // ---BUT---
+        //
+        // Wine and it's derivatives will -always- pass the OpenGL or Vulkan renderer
+        // detection, depending on what backend they are set to use for D3D.
+        // (wined3d == OpenGL. vkd3d || vkd3d-proton || DXVK || etc. == Vulkan.)
+        //
+        // So pass this check if, under Windows, D3D's frame interval timing isn't close to
+        // OpenGL's or Vulkan's. (I.e. Multiple frames have passed and only D3D has kept pace.)
+        // --OR--
+        // Invert the result under Windows to cover the NVIDIA case.
+        // --OR--
+        // Fail this check under Wine if OpenGL's / Vulkan's timing is the only regularly
+        // incrementing value. (I.e. Multiple frames have passed and only OpenGL OR Vulkan is
+        // keeping pace.)
+        // --OR--
+        // Pass this check under Wine if D3D's frame interval timing is keeping up with
+        // OpenGL's / Vulkan's. (I.e. Multiple frames have passed, D3D and either OpenGL or
+        // Vulkan has kept pace.)
+        {
+            if (inst->d3d_hook_detect_time != std::chrono::steady_clock::time_point() &&
+                inst->d3d_frame_duration != std::chrono::steady_clock::duration())
+            {
+                if (inst->ogl_hook_detect_time != std::chrono::steady_clock::time_point() &&
+                    inst->ogl_frame_duration != std::chrono::steady_clock::duration())
+                {
+                    std::chrono::duration<int, std::milli> duration_diff(0);
+                    if (inst->ogl_frame_duration > inst->d3d_frame_duration)
+                    {
+                        duration_diff = std::chrono::duration_cast<std::chrono::milliseconds>(inst->ogl_frame_duration - inst->d3d_frame_duration);
+                    }
+                    else
+                    {
+                        duration_diff = std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration - inst->ogl_frame_duration);
+                    }
+
+                    if (duration_diff < std::chrono::duration<int, std::milli>(MAX_RENDER_DETECT_FRAME_TIMING_VARIANCE))
+                    {
+                        ret = true;
+                    }
+
+                    if (!inst->wine_found)
+                        ret = !ret;
+                }
+                else
+                {
+                    if (inst->vkn_hook_detect_time != std::chrono::steady_clock::time_point() &&
+                        inst->vkn_frame_duration != std::chrono::steady_clock::duration())
+                    {
+                        std::chrono::duration<int, std::milli> duration_diff(0);
+                        if (inst->vkn_frame_duration > inst->d3d_frame_duration)
+                        {
+                            duration_diff = std::chrono::duration_cast<std::chrono::milliseconds>(inst->vkn_frame_duration - inst->d3d_frame_duration);
+                        }
+                        else
+                        {
+                            duration_diff = std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration - inst->vkn_frame_duration);
+                        }
+
+                        if (duration_diff < std::chrono::duration<int, std::milli>(MAX_RENDER_DETECT_FRAME_TIMING_VARIANCE))
+                        {
+                            ret = true;
+                        }
+
+                        if (!inst->wine_found)
+                            ret = !ret;
+                    }
+                    else
+                    {
+                        ret = true;
+                    }
+                }
+            }
+        }
+
+        PRINT_DEBUG("%s %s.\n",
+                    "Renderer_Detector CheckD3DHookDetectTimings Correct API:",
+                    ((ret == true) ? "D3D" : "OpenGL / Vulkan"));
+
+        return ret;
+    }
+
     static HRESULT STDMETHODCALLTYPE MyIDXGISwapChain_Present(IDXGISwapChain* _this, UINT SyncInterval, UINT Flags)
     {
         auto inst = Inst();
         HRESULT res;
         bool locked;
-        std::unique_lock<std::mutex> lk(inst->renderer_mutex, std::defer_lock);
+        bool detect_pass = false;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyIDXGISwapChain_Present");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyIDXGISwapChain_Present Initial time");
+                }
+                if (inst->d3d_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->d3d_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyIDXGISwapChain_Present Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->d3d_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->d3d_hook_detect_time);
+                        inst->d3d_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyIDXGISwapChain_Present current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = CheckD3DHookDetectTimings();
+                    }
+                }
+            }
+        }
 
         // It appears that (NVidia at least) calls IDXGISwapChain when calling OpenGL or Vulkan SwapBuffers.
         // So only lock when OpenGL or Vulkan hasn't already locked the mutex.
-        locked = lk.try_lock();
-        res = (_this->*inst->IDXGISwapChainPresent)(SyncInterval, Flags);
-        if (!locked || inst->detection_done)
-            return res;
 
-        inst->DeduceDXVersionFromSwapChain(_this);
+        res = (_this->*inst->IDXGISwapChainPresent)(SyncInterval, Flags);
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
+
+            if (detect_pass)
+                inst->DeduceDXVersionFromSwapChain(_this);
+        }
 
         return res;
     }
@@ -318,16 +470,60 @@ private:
         auto inst = Inst();
         HRESULT res;
         bool locked;
-        std::unique_lock<std::mutex> lk(inst->renderer_mutex, std::defer_lock);
+        bool detect_pass = false;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyIDXGISwapChain_Present1");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyIDXGISwapChain_Present1 Initial time");
+                }
+                if (inst->d3d_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->d3d_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyIDXGISwapChain_Present1 Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->d3d_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->d3d_hook_detect_time);
+                        inst->d3d_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyIDXGISwapChain_Present1 current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = CheckD3DHookDetectTimings();
+                    }
+                }
+            }
+        }
 
         // It appears that (NVidia at least) calls IDXGISwapChain when calling OpenGL or Vulkan SwapBuffers.
         // So only lock when OpenGL or Vulkan hasn't already locked the mutex.
-        locked = lk.try_lock();
-        res = (_this->*inst->IDXGISwapChainPresent1)(SyncInterval, Flags, pPresentParameters);
-        if (!locked || inst->detection_done)
-            return res;
 
-        inst->DeduceDXVersionFromSwapChain(_this);
+        res = (_this->*inst->IDXGISwapChainPresent1)(SyncInterval, Flags, pPresentParameters);
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
+
+            if (detect_pass)
+                inst->DeduceDXVersionFromSwapChain(_this);
+        }
 
         return res;
     }
@@ -335,13 +531,58 @@ private:
     static HRESULT STDMETHODCALLTYPE MyDX9Present(IDirect3DDevice9* _this, CONST RECT* pSourceRect, CONST RECT* pDestRect, HWND hDestWindowOverride, CONST RGNDATA* pDirtyRegion)
     {
         auto inst = Inst();
-        std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+        bool detect_pass = false;
+
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyDX9Present");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9Present Initial time");
+                }
+                if (inst->d3d_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->d3d_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9Present Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->d3d_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->d3d_hook_detect_time);
+                        inst->d3d_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyDX9Present current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = CheckD3DHookDetectTimings();
+                    }
+                }
+            }
+        }
 
         auto res = (_this->*inst->IDirect3DDevice9Present)(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
-        if (inst->detection_done)
-            return res;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
 
-        inst->HookDetected(inst->dx9_hook);
+            if (detect_pass)
+                inst->HookDetected(inst->dx9_hook);
+        }
 
         return res;
     }
@@ -349,13 +590,58 @@ private:
     static HRESULT STDMETHODCALLTYPE MyDX9PresentEx(IDirect3DDevice9Ex* _this, CONST RECT* pSourceRect, CONST RECT* pDestRect, HWND hDestWindowOverride, CONST RGNDATA* pDirtyRegion, DWORD dwFlags)
     {
         auto inst = Inst();
-        std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+        bool detect_pass = false;
+
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyDX9PresentEx");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9PresentEx Initial time");
+                }
+                if (inst->d3d_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->d3d_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9PresentEx Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->d3d_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->d3d_hook_detect_time);
+                        inst->d3d_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyDX9PresentEx current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = CheckD3DHookDetectTimings();
+                    }
+                }
+            }
+        }
 
         auto res = (_this->*inst->IDirect3DDevice9ExPresentEx)(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, dwFlags);
-        if (inst->detection_done)
-            return res;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
 
-        inst->HookDetected(inst->dx9_hook);
+            if (detect_pass)
+                inst->HookDetected(inst->dx9_hook);
+        }
 
         return res;
     }
@@ -363,13 +649,58 @@ private:
     static HRESULT STDMETHODCALLTYPE MyDX9SwapChainPresent(IDirect3DSwapChain9* _this, CONST RECT* pSourceRect, CONST RECT* pDestRect, HWND hDestWindowOverride, CONST RGNDATA* pDirtyRegion, DWORD dwFlags)
     {
         auto inst = Inst();
-        std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+        bool detect_pass = false;
+
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyDX9SwapChainPresent");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9SwapChainPresent Initial time");
+                }
+                if (inst->d3d_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->d3d_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyDX9SwapChainPresent Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->d3d_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->d3d_hook_detect_time);
+                        inst->d3d_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyDX9SwapChainPresent current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->d3d_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = CheckD3DHookDetectTimings();
+                    }
+                }
+            }
+        }
 
         auto res = (_this->*inst->IDirect3DSwapChain9Present)(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, dwFlags);
-        if (inst->detection_done)
-            return res;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
 
-        inst->HookDetected(inst->dx9_hook);
+            if (detect_pass)
+                inst->HookDetected(inst->dx9_hook);
+        }
 
         return res;
     }
@@ -377,15 +708,57 @@ private:
     static BOOL WINAPI MywglSwapBuffers(HDC hDC)
     {
         auto inst = Inst();
-        std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+        bool detect_pass = false;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MywglSwapBuffers");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MywglSwapBuffers Initial time");
+                }
+                if (inst->ogl_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->ogl_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MywglSwapBuffers Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->ogl_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->ogl_hook_detect_time);
+                        inst->ogl_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MywglSwapBuffers current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->ogl_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = !(CheckD3DHookDetectTimings());
+                    }
+                }
+            }
+        }
 
         auto res = inst->wglSwapBuffers(hDC);
-        if (inst->detection_done)
-            return res;
-
-        if (gladLoaderLoadGL() >= GLAD_MAKE_VERSION(3, 1))
         {
-            inst->HookDetected(inst->opengl_hook);
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
+
+            if (detect_pass == true && gladLoaderLoadGL() >= GLAD_MAKE_VERSION(3, 1))
+                inst->HookDetected(inst->opengl_hook);
         }
 
         return res;
@@ -394,13 +767,58 @@ private:
     static VkResult VKAPI_CALL MyvkQueuePresentKHR(VkQueue Queue, const VkPresentInfoKHR* pPresentInfo)
     {
         auto inst = Inst();
-        std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+        bool detect_pass = false;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector MyvkQueuePresentKHR");
+
+            if (!inst->detection_done)
+            {
+                auto current = std::chrono::steady_clock::now();
+                std::lock_guard<std::mutex> t_lk(inst->timing_detect_mutex);
+                if (inst->initial_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->initial_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyvkQueuePresentKHR Initial time");
+                }
+                if (inst->vkn_hook_detect_time == std::chrono::steady_clock::time_point())
+                {
+                    inst->vkn_hook_detect_time = current;
+                    PRINT_DEBUG("%s.\n",
+                                "Renderer_Detector MyvkQueuePresentKHR Initial detect");
+                }
+                else
+                {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time) < std::chrono::milliseconds{GET_RENDERER_DETECT_TIMEOUT})
+                    {
+                        inst->vkn_frame_duration = std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->vkn_hook_detect_time);
+                        inst->vkn_hook_detect_time = current;
+                        PRINT_DEBUG("%s %" PRIu64 " %s %" PRIu64 "ms.\n",
+                                    "Renderer_Detector MyvkQueuePresentKHR current frame duration:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(inst->vkn_frame_duration)).count(),
+                                    "ms. time since first detect:",
+                                    (std::chrono::duration_cast<std::chrono::milliseconds>(current - inst->initial_hook_detect_time)).count());
+                    }
+                    else
+                    {
+                        detect_pass = !(CheckD3DHookDetectTimings());
+                    }
+                }
+            }
+        }
 
         auto res = inst->vkQueuePresentKHR(Queue, pPresentInfo);
-        if (inst->detection_done)
-            return res;
+        {
+            std::lock_guard<std::mutex> lk(inst->renderer_mutex);
+            if (inst->detection_done)
+                return res;
 
-        inst->HookDetected(inst->vulkan_hook);
+            if (detect_pass)
+                inst->HookDetected(inst->vulkan_hook);
+        }
 
         return res;
     }
@@ -583,6 +1001,23 @@ private:
     {
         if (!dx10_hooked)
         {
+            //HACK: Remove when wine _finally_ implements the NULL renderer....
+            bool found_wine = false;
+            std::string ntdll_path = FindPreferedModulePath("ntdll.dll");
+            if (!ntdll_path.empty())
+            {
+                HMODULE hNTdll = GetModuleHandleA(ntdll_path.c_str());
+                if (hNTdll != nullptr)
+                {
+                    auto wine_get_version = (const char*(*)())GetProcAddress(hNTdll, "wine_get_version");
+                    if (wine_get_version != nullptr)
+                    {
+                        found_wine = true;
+                        SPDLOG_WARN("Found WINE version: %s.\n", wine_get_version());
+                    }
+                }
+            }
+
             System::Library::Library libD3d10;
             if (!libD3d10.OpenLibrary(library_path, false))
             {
@@ -607,7 +1042,7 @@ private:
 
                     if (D3D10CreateDevice != nullptr && CreateDXGIFactory1 != nullptr)
                     {
-                        D3D10CreateDevice(NULL, D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &pDevice);
+                        D3D10CreateDevice(NULL, (found_wine) ? D3D10_DRIVER_TYPE_WARP : D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &pDevice);
                         if (pDevice != nullptr)
                         {
                             CreateDXGIFactory1(IID_PPV_ARGS(&pDXGIFactory));
@@ -627,6 +1062,24 @@ private:
 
                                 pDXGIFactory->CreateSwapChainForHwnd(pDevice, dummyWindow, &SwapChainDesc, NULL, NULL, reinterpret_cast<IDXGISwapChain1**>(&pSwapChain));
                             }
+                            else
+                            {
+                                SPDLOG_WARN("Failed to instanciate IDXGIFactory2, fallback to pure DX10 detection");
+                            }
+                        }
+                        else
+                        {
+                            SPDLOG_WARN("Failed to instanciate ID3D10Device, fallback to pure DX10 detection");
+                        }
+                    }
+                    else
+                    {
+                        if (D3D10CreateDevice == nullptr)
+                        {
+                            SPDLOG_WARN("Failed to get address of D3D10CreateDevice, fallback to pure DX10 detection");
+                        } else
+                        {
+                            SPDLOG_WARN("Failed to get address of CreateDXGIFactory1, fallback to pure DX10 detection");
                         }
                     }
 
@@ -660,7 +1113,11 @@ private:
                     SwapChainDesc.SampleDesc.Quality = 0;
                     SwapChainDesc.Windowed = TRUE;
 
-                    D3D10CreateDeviceAndSwapChain(NULL, D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice);
+                    D3D10CreateDeviceAndSwapChain(NULL, (found_wine) ? D3D10_DRIVER_TYPE_WARP : D3D10_DRIVER_TYPE_NULL, NULL, 0, D3D10_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice);
+                }
+                else
+                {
+                    SPDLOG_WARN("Failed to get address of D3D10CreateDeviceAndSwapChain, DX10 API failed.");
                 }
             }
 
@@ -698,6 +1155,23 @@ private:
     {
         if (!dx11_hooked)
         {
+            //HACK: Remove when wine _finally_ implements the NULL renderer....
+            bool found_wine = false;
+            std::string ntdll_path = FindPreferedModulePath("ntdll.dll");
+            if (!ntdll_path.empty())
+            {
+                HMODULE hNTdll = GetModuleHandleA(ntdll_path.c_str());
+                if (hNTdll != nullptr)
+                {
+                    auto wine_get_version = (const char*(*)())GetProcAddress(hNTdll, "wine_get_version");
+                    if (wine_get_version != nullptr)
+                    {
+                        found_wine = true;
+                        SPDLOG_WARN("Found WINE version: %s.\n", wine_get_version());
+                    }
+                }
+            }
+
             System::Library::Library libD3d11;
             if (!libD3d11.OpenLibrary(library_path, false))
             {
@@ -722,7 +1196,7 @@ private:
 
                     if (D3D11CreateDevice != nullptr && CreateDXGIFactory1 != nullptr)
                     {
-                        D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &pDevice, NULL, NULL);
+                        D3D11CreateDevice(NULL, (found_wine) ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, 0, D3D11_SDK_VERSION, &pDevice, NULL, NULL);
                         if (pDevice != nullptr)
                         {
                             CreateDXGIFactory1(IID_PPV_ARGS(&pDXGIFactory));
@@ -741,7 +1215,17 @@ private:
                                 SwapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 
                                 pDXGIFactory->CreateSwapChainForHwnd(pDevice, dummyWindow, &SwapChainDesc, NULL, NULL, reinterpret_cast<IDXGISwapChain1**>(&pSwapChain));
+                            } else {
+                                SPDLOG_WARN("Failed to instanciate IDXGIFactory2, fallback to pure DX11 detection");
                             }
+                        } else {
+                            SPDLOG_WARN("Failed to instanciate ID3D11Device, fallback to pure DX11 detection");
+                        }
+                    } else {
+                        if (D3D11CreateDevice == nullptr) {
+                            SPDLOG_WARN("Failed to get address of D3D11CreateDevice, fallback to pure DX11 detection");
+                        } else {
+                            SPDLOG_WARN("Failed to get address of CreateDXGIFactory1, fallback to pure DX11 detection");
                         }
                     }
 
@@ -775,7 +1259,9 @@ private:
                     SwapChainDesc.SampleDesc.Quality = 0;
                     SwapChainDesc.Windowed = TRUE;
 
-                    D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice, NULL, NULL);
+                    D3D11CreateDeviceAndSwapChain(NULL, (found_wine) ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_NULL, NULL, 0, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &pSwapChain, &pDevice, NULL, NULL);
+                } else {
+                    SPDLOG_WARN("Failed to get address of D3D11CreateDeviceAndSwapChain, DX11 API failed.");
                 }
             }
 
@@ -1045,6 +1531,20 @@ private:
 
     bool EnterDetection()
     {
+        std::string ntdll_path = FindPreferedModulePath("ntdll.dll");
+        if (!ntdll_path.empty())
+        {
+            HMODULE hNTdll = GetModuleHandleA(ntdll_path.c_str());
+            if (hNTdll != nullptr)
+            {
+                auto wine_get_version = (const char*(*)())GetProcAddress(hNTdll, "wine_get_version");
+                if (wine_get_version != nullptr)
+                {
+                    wine_found = true;
+                    PRINT_DEBUG("Found WINE version: %s.\n", wine_get_version());
+                }
+            }
+        }
         return CreateHWND() != nullptr;
     }
 
@@ -1063,6 +1563,7 @@ private:
         dx9_hooked     = false;
         opengl_hooked  = false;
         vulkan_hooked  = false;
+        wine_found     = false;
 
         delete dx9_hook   ; dx9_hook    = nullptr;
         delete dx10_hook  ; dx10_hook   = nullptr;
@@ -1070,6 +1571,15 @@ private:
         delete dx12_hook  ; dx12_hook   = nullptr;
         delete opengl_hook; opengl_hook = nullptr;
         delete vulkan_hook; vulkan_hook = nullptr;
+
+        initial_hook_detect_time = std::chrono::time_point<std::chrono::steady_clock>();
+        d3d_hook_detect_time = std::chrono::time_point<std::chrono::steady_clock>();
+        ogl_hook_detect_time = std::chrono::time_point<std::chrono::steady_clock>();
+        vkn_hook_detect_time = std::chrono::time_point<std::chrono::steady_clock>();
+
+        d3d_frame_duration = std::chrono::steady_clock::duration();
+        ogl_frame_duration = std::chrono::steady_clock::duration();
+        vkn_frame_duration = std::chrono::steady_clock::duration();
     }
 
 #elif defined(RENDERERDETECTOR_OS_LINUX)
@@ -1312,6 +1822,22 @@ public:
     {
         std::lock_guard<std::mutex> lk(stop_detection_mutex);
 
+        if (timeout != std::chrono::milliseconds{ -1 })
+        {
+            if (timeout < std::chrono::milliseconds{ GET_RENDERER_DETECT_TIMEOUT * 2 })
+            {// Need enough time to determine API if multiple are used.
+                 timeout = std::chrono::milliseconds{ GET_RENDERER_DETECT_TIMEOUT * 2 };
+            }
+            PRINT_DEBUG("%s %" PRIu64 ".\n",
+                        "Renderer_Detector Detection timeout set to:",
+                        timeout.count());
+        }
+        else
+        {
+            PRINT_DEBUG("%s.\n",
+                        "Renderer_Detector Detection timeout set to: infinite");
+        }
+
         if (detection_count == 0)
         {// If we have no detections in progress, restart detection.
             detection_cancelled = false;
@@ -1401,7 +1927,7 @@ public:
             }
             stop_detection_cv.notify_all();
 
-            SPDLOG_TRACE("Renderer detection done {}.", (void*)renderer_hook);
+            SPDLOG_TRACE("Renderer detection done %p.", (void*)renderer_hook);
 
             return renderer_hook;
         });

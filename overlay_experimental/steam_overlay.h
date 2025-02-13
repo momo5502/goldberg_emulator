@@ -68,6 +68,8 @@ struct Notification
     std::chrono::seconds start_time;
     std::string message;
     std::pair<const Friend, friend_window_state>* frd;
+    std::string ach_name;
+    CSteamID steam_id;
 };
 
 struct Overlay_Achievement
@@ -78,11 +80,67 @@ struct Overlay_Achievement
     bool hidden;
     bool achieved;
     uint32 unlock_time;
+    uint8 * raw_image;
+    uint32 raw_image_width;
+    uint32 raw_image_height;
+    std::weak_ptr<uint64_t> image_resource;
+};
+
+struct Profile_Image_ID
+{
+    CSteamID id;
+    int eAvatarSize;
+};
+
+bool operator<(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+bool operator>(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+bool operator<=(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+bool operator>=(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+bool operator==(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+bool operator!=(const Profile_Image_ID &a, const Profile_Image_ID &b);
+
+struct Profile_Image
+{
+    uint32 width;
+    uint32 height;
+    uint8 * raw_image;
+    std::weak_ptr<uint64_t> image_resource;
+};
+
+#ifdef small
+#undef small
+#endif
+
+struct Profile_Image_Set
+{
+    Profile_Image small;
+    Profile_Image medium;
+    Profile_Image large;
+};
+
+struct Temporary_Image
+{
+    Profile_Image image_data;
+    std::chrono::steady_clock::time_point last_display_time;
+};
+
+enum DisplayImageType {
+  displayImageTypeAchievement = 0,
+  displayImageTypeAvatar = 1,
+  displayImageTypeCustom = 2,
+  displayImageTypeEND = 3
 };
 
 #ifdef EMU_OVERLAY
 #include <future>
 #include "Renderer_Hook.h"
+class Steam_Overlay_CCallback;
+
 class Steam_Overlay
 {
     Settings* settings;
@@ -90,6 +148,7 @@ class Steam_Overlay
     SteamCallBacks* callbacks;
     RunEveryRunCB* run_every_runcb;
     Networking* network;
+    Steam_Overlay_CCallback* overlay_CCallback;
 
     // friend id, show client window (to chat and accept invite maybe)
     std::map<Friend, friend_window_state, Friend_Less> friends;
@@ -101,16 +160,33 @@ class Steam_Overlay
     int h_inset, v_inset;
     std::string show_url;
     std::vector<Overlay_Achievement> achievements;
-    bool show_achievements, show_settings;
+    bool show_achievements, show_settings, show_profile_image_select;
     void *fonts_atlas;
 
-    bool disable_forced, local_save, warning_forced;
-    uint32_t appid;
+    bool disable_forced, local_save, warning_forced, show_achievement_desc_on_unlock, show_achievement_hidden_unearned;
+    uint32_t appid, total_achievement_count, earned_achievement_count;
 
     char username_text[256];
-    std::atomic_bool save_settings;
+    std::atomic_bool save_settings, save_small_profile_image, save_medium_profile_image, save_large_profile_image;
+
+    // Set Avatar Image filesystem chooser
+    bool show_drive_list;
+    std::map<std::string, bool> filesystem_list;
+    std::string current_path;
+    std::string future_path;
+
+    // Avatar Images
+    std::map<CSteamID, Profile_Image_Set> profile_images;
+    std::map<CSteamID, uint32_t>lazy_load_avatar_images;
+
+    std::string new_profile_image_path;
+    std::string current_status_message;
+    bool tried_load_new_profile_image, cleared_new_profile_images_struct;
+    Profile_Image_Set new_profile_image_handles;
+    bool radio_btn_new_profile_image_size[3];
 
     int current_language;
+    int current_ui_notification_position_selection;
 
     std::string warning_message;
 
@@ -149,6 +225,82 @@ class Steam_Overlay
     void BuildFriendWindow(Friend const& frd, friend_window_state &state);
     // Notifications like achievements, chat and invitations
     void BuildNotifications(int width, int height);
+
+    // ImGui image.
+    std::map<uint8*,Temporary_Image> temp_display_images;
+
+    int display_imgui_achievement(float xSize,
+                                  float ySize,
+                                  float image_color_multipler_r,
+                                  float image_color_multipler_g,
+                                  float image_color_multipler_b,
+                                  float image_color_multipler_a,
+                                  std::string achName,
+                                  uint32_t loadType);
+
+    int display_imgui_avatar(float xSize,
+                             float ySize,
+                             float image_color_multipler_r,
+                             float image_color_multipler_g,
+                             float image_color_multipler_b,
+                             float image_color_multipler_a,
+                             CSteamID userID,
+                             int eAvatarSize,
+                             uint32_t loadType);
+
+    int display_imgui_custom_image(float xSize,
+                                   float ySize,
+                                   float image_color_multipler_r,
+                                   float image_color_multipler_g,
+                                   float image_color_multipler_b,
+                                   float image_color_multipler_a,
+                                   uint8 * imageData,
+                                   uint32_t imageDataLength,
+                                   uint32_t imageDataWidth,
+                                   uint32_t imageDataHeight);
+
+    int display_imgui_image(uint32_t displayImageType,
+                            float xSize,
+                            float ySize,
+                            float image_color_multipler_r,
+                            float image_color_multipler_g,
+                            float image_color_multipler_b,
+                            float image_color_multipler_a,
+                            std::string achName,
+                            CSteamID userID,
+                            int eAvatarSize,
+                            uint8 * imageData,
+                            uint32_t imageDataLength,
+                            uint32_t imageDataWidth,
+                            uint32_t imageDataHeight,
+                            uint32_t loadType);
+
+    void LoadAchievementImage(Overlay_Achievement & ach);
+    void CreateAchievementImageResource(Overlay_Achievement & ach);
+    void DestroyAchievementImageResource(Overlay_Achievement & ach);
+    void DestroyAchievementImageResources();
+
+    // Profile images
+    void populate_initial_profile_images(CSteamID id);
+    bool LoadProfileImage(const CSteamID & id, const int eAvatarSize);
+    bool LoadProfileImage(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images);
+    bool CreateProfileImageResource(const CSteamID & id, const int eAvatarSize);
+    bool CreateProfileImageResource(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images);
+    void DestroyProfileImage(const CSteamID & id, const int eAvatarSize);
+    void DestroyProfileImage(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images);
+    void DestroyProfileImageResource(const CSteamID & id, const int eAvatarSize);
+    void DestroyProfileImageResource(const CSteamID & id, const int eAvatarSize, Profile_Image_Set & images);
+    void DestroyProfileImageResources();
+
+    // Temporary images
+    void ReturnTemporaryImage(Profile_Image & imageData);
+    Profile_Image GetTemporaryImage(uint8 * imageData);
+    void DestroyTemporaryImageResource(uint8 * imageData);
+    void DestroyTemporaryImageResources();
+    void DestroyTemporaryImage(uint8 * imageData);
+    void DestroyTemporaryImages();
+    void PruneTemporaryImages();
+
 public:
     Steam_Overlay(Settings* settings, SteamCallResults* callback_results, SteamCallBacks* callbacks, RunEveryRunCB* run_every_runcb, Networking *network);
 
@@ -163,6 +315,7 @@ public:
     void SetNotificationInset(int nHorizontalInset, int nVerticalInset);
     void SetupOverlay();
     void UnSetupOverlay();
+    bool RegisteredInternalCallbacks();
 
     void HookReady(bool ready);
 
@@ -183,9 +336,10 @@ public:
     void FriendConnect(Friend _friend);
     void FriendDisconnect(Friend _friend);
 
-    void AddMessageNotification(std::string const& message);
+    void AddMessageNotification(std::string const& message, CSteamID frd);
     void AddAchievementNotification(nlohmann::json const& ach);
     void AddInviteNotification(std::pair<const Friend, friend_window_state> &wnd_state);
+    void OnAvatarImageLoaded(AvatarImageLoaded_t *pParam);
 };
 
 #else
@@ -205,6 +359,7 @@ public:
     void SetNotificationInset(int nHorizontalInset, int nVerticalInset) {}
     void SetupOverlay() {}
     void UnSetupOverlay() {}
+    bool RegisteredInternalCallbacks() const { return true; }
 
     void HookReady(bool ready) {}
 
@@ -225,9 +380,10 @@ public:
     void FriendConnect(Friend _friend) {}
     void FriendDisconnect(Friend _friend) {}
 
-    void AddMessageNotification(std::string const& message) {}
+    void AddMessageNotification(std::string const& message, CSteamID frd) {}
     void AddAchievementNotification(nlohmann::json const& ach) {}
     void AddInviteNotification(std::pair<const Friend, friend_window_state> &wnd_state) {}
+    void OnAvatarImageLoaded(AvatarImageLoaded_t *pParam) {}
 };
 
 #endif

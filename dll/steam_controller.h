@@ -16,6 +16,10 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "base.h"
+
+#ifndef INCLUDED_STEAM_CONTROLLER_H
+#define INCLUDED_STEAM_CONTROLLER_H
+
 #ifndef CONTROLLER_SUPPORT
 inline void GamepadInit(void) {}
 inline void GamepadShutdown(void) {}
@@ -1224,3 +1228,5 @@ void RunCallbacks()
 }
 
 };
+
+#endif // INCLUDED_STEAM_CONTROLLER_H

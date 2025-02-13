@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_APPLIST_H
+#define INCLUDED_STEAM_APPLIST_H
+
 class Steam_Applist : public ISteamAppList
 {
 public:
@@ -28,3 +31,5 @@ public:
 
 	int GetAppBuildId( AppId_t nAppID ); // return the buildid of this app, may change at any time based on backend updates to the game
 };
+
+#endif // INCLUDED_STEAM_APPLIST_H

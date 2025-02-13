@@ -34,14 +34,176 @@ struct File_Data {
     std::string name;
 };
 
+std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> in) {
+    std::string out;
+
+    for (auto i : in) {
+        out += i.channels.r;
+        out += i.channels.g;
+        out += i.channels.b;
+        out += i.channels.a;
+    }
+
+    return out;
+}
+
+struct our_stbi_buffer {
+    uint8 * target;
+    size_t target_length;
+    size_t current_offset;
+};
+
+void our_stbi_write_func(void *context, void *data, int size) {
+    struct our_stbi_buffer * con = (struct our_stbi_buffer *)context;
+    uint8 * in_data = (uint8 *)data;
+    if (in_data != NULL &&
+        con != NULL &&
+        con->target != NULL &&
+        con->target_length > 0 &&
+        con->current_offset < con->target_length &&
+        (con->current_offset + size) < con->target_length) {
+        for (size_t x = 0; (x < size && (con->current_offset + x) < con->target_length); x++) {
+            con->target[(con->current_offset + x)] = in_data[x];
+        }
+        con->current_offset += size;
+    }
+    return;
+}
+
+std::string convert_raw_uint8_to_png_std_string(uint8 * in, int width, int height, int components) {
+    struct our_stbi_buffer buf;
+    std::string out;
+    out.clear();
+
+    if (in != NULL && width > 0 && height > 0 && components > 0 && components <= 4) {
+        buf.target_length = (width * height * components);
+        buf.current_offset = 0;
+        buf.target = new uint8[(width * height * components)];
+        if (buf.target != NULL) {
+            if (stbi_write_png_to_func(our_stbi_write_func, &buf, width, height, components, in, 0) == 1) {
+                for (size_t x = 0; x < (width * height * components); x++) {
+                    char a = (char)buf.target[x];
+                    out += a;
+                }
+            }
+
+            delete buf.target;
+            buf.target = NULL;
+        }
+        buf.target_length = 0;
+        buf.current_offset = 0;
+    }
+
+    return out;
+}
+
+std::string convert_raw_uint8_to_jpg_std_string(uint8 * in, int width, int height, int components) {
+    struct our_stbi_buffer buf;
+    std::string out;
+    out.clear();
+
+    if (in != NULL && width > 0 && height > 0 && components > 0 && components <= 4) {
+        buf.target_length = (width * height * components);
+        buf.current_offset = 0;
+        buf.target = new uint8[(width * height * components)];
+        if (buf.target != NULL) {
+            if (stbi_write_jpg_to_func(our_stbi_write_func, &buf, width, height, components, in, 0) == 1) {
+                for (size_t x = 0; x < (width * height * components); x++) {
+                    char a = (char)buf.target[x];
+                    out += a;
+                }
+            }
+
+            delete buf.target;
+            buf.target = NULL;
+        }
+        buf.target_length = 0;
+        buf.current_offset = 0;
+    }
+
+    return out;
+}
+
+std::string convert_imgbuf_std_string_to_std_string_uint8(std::string in,
+                                                          int * out_width,
+                                                          int * out_height,
+                                                          int * out_components,
+                                                          int desired_components) {
+    std::string out;
+    out.clear();
+    int w = 0;
+    int h = 0;
+    int c = 0;
+
+    if (in.length() > 0 &&
+        desired_components > 0 &&
+        desired_components <= 4) {
+        uint8 * buf = (uint8*)stbi_load_from_memory((stbi_uc *)in.c_str(), in.length(), &w, &h, &c, desired_components);
+        if (buf != NULL) {
+            if (w > 0 && h > 0 && desired_components > 0) {
+                for (size_t x = 0; x < (w * h * desired_components); x++) {
+                    char a = buf[x];
+                    out += a;
+                }
+            }
+            if (out_width != NULL) {
+                *out_width = w;
+            }
+            if (out_height != NULL) {
+                *out_height = h;
+            }
+            if (out_components != NULL) {
+                *out_components = c;
+            }
+            stbi_image_free(buf);
+        } else {
+            out.clear();
+            if (out_width != NULL) {
+                *out_width = 0;
+            }
+            if (out_height != NULL) {
+                *out_height = 0;
+            }
+            if (out_components != NULL) {
+                *out_components = 0;
+            }
+            PRINT_DEBUG("%s %p. reason: %s\n", "Failed to decode image at", &in, stbi_failure_reason());
+        }
+    }
+
+    return out;
+}
+
+std::string convert_png_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components) {
+    return convert_imgbuf_std_string_to_std_string_uint8(in, width, height, components, desired_components);
+}
+
+std::string convert_jpg_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components) {
+    return convert_imgbuf_std_string_to_std_string_uint8(in, width, height, components, desired_components);
+}
+
 #ifdef NO_DISK_WRITES
 std::string Local_Storage::get_program_path()
 {
     return " ";
 }
 
+std::string Local_Storage::get_user_pictures_path()
+{
+    return " ";
+}
 
 std::string Local_Storage::get_user_appdata_path()
+{
+    return " ";
+}
+
+bool Local_Storage::is_directory(std::string &path)
+{
+    return false;
+}
+
+std::string Local_Storage::get_parent_directory(std::string &path)
 {
     return " ";
 }
@@ -71,7 +233,7 @@ void Local_Storage::setAppId(uint32 appid)
 
 }
 
-int Local_Storage::store_file_data(std::string folder, std::string file, char *data, unsigned int length)
+int Local_Storage::store_file_data(std::string folder, std::string file, const char *data, unsigned int length)
 {
     return -1;
 }
@@ -81,7 +243,7 @@ int Local_Storage::store_data(std::string folder, std::string file, char *data, 
     return -1;
 }
 
-int Local_Storage::store_data_settings(std::string file, char *data, unsigned int length)
+int Local_Storage::store_data_settings(std::string file, const char *data, unsigned int length)
 {
     return -1;
 }
@@ -111,12 +273,22 @@ bool Local_Storage::file_exists(std::string folder, std::string file)
     return false;
 }
 
+bool Local_Storage::data_settings_exists(std::string file)
+{
+    return false;
+}
+
 unsigned int Local_Storage::file_size(std::string folder, std::string file)
 {
     return 0;
 }
 
 bool Local_Storage::file_delete(std::string folder, std::string file)
+{
+    return false;
+}
+
+bool Local_Storage::delete_data_settings(std::string file)
 {
     return false;
 }
@@ -156,7 +328,7 @@ std::vector<std::string> Local_Storage::get_filenames_path(std::string path)
     return std::vector<std::string>();
 }
 
-std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path)
+std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height)
 {
     return std::vector<image_pixel_t>();
 }
@@ -271,6 +443,29 @@ static std::vector<struct File_Data> get_filenames_recursive(std::string base_pa
 }
 
 #else
+
+static bool DirectoryExists(const char *path) {
+    char tmp[PATH_MAX_STRING_SIZE];
+    struct stat sb;
+    size_t len;
+
+    /* copy path */
+    len = strnlen (path, PATH_MAX_STRING_SIZE);
+    if (len == 0 || len == PATH_MAX_STRING_SIZE) {
+        return false;
+    }
+    memcpy (tmp, path, len);
+    tmp[len] = '\0';
+
+    /* check if path exists and is a directory */
+    if (stat (tmp, &sb) == 0) {
+        if (S_ISDIR (sb.st_mode)) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 /* recursive mkdir */
 static int mkdir_p(const char *dir, const mode_t mode) {
@@ -410,6 +605,26 @@ std::string Local_Storage::get_game_settings_path()
     return get_program_path().append(game_settings_folder).append(PATH_SEPARATOR);
 }
 
+std::string Local_Storage::get_user_pictures_path() {
+    std::string user_pictures_path = "Pictures";
+#if defined(STEAM_WIN32)
+    WCHAR szPath[MAX_PATH] = {};
+
+    HRESULT hr = SHGetFolderPathW(NULL, CSIDL_MYPICTURES, NULL, 0, szPath);
+
+    if (SUCCEEDED(hr)) {
+        user_pictures_path = utf8_encode(szPath);
+    }
+
+#else
+    char *datadir = getenv("HOME");
+    if (datadir) {
+        user_pictures_path = datadir;
+    }
+#endif
+    return user_pictures_path;
+}
+
 std::string Local_Storage::get_user_appdata_path()
 {
     std::string user_appdata_path = "SAVE";
@@ -492,12 +707,77 @@ Local_Storage::Local_Storage(std::string save_directory)
     }
 }
 
+std::string Local_Storage::get_parent_directory(std::string &path)
+{
+    std::string ret = "";
+    std::string temp = "";
+
+    ret = sanitize_file_name(path);
+    if (ret.length() > 1) {
+        temp = ret[(ret.length() - 1)];
+        if (temp == PATH_SEPARATOR) {
+            ret.erase((ret.length() - 1), 1);
+        }
+    }
+
+    if (ret.length() > 1) {
+        size_t last_pos = 0;
+        size_t count = 0;
+        for (auto i : ret) {
+            temp = i;
+            if (temp == PATH_SEPARATOR) {
+                last_pos = count;
+            }
+            count = count + 1;
+        }
+        if ((last_pos > 0) && (last_pos < (count  - 1))) {
+            ret.erase(last_pos, (count - 1));
+        }
+    }
+
+    ret = desanitize_file_name(ret);
+
+    return ret;
+}
+
+bool Local_Storage::is_directory(std::string &path)
+{
+    bool ret = false;
+#if defined(STEAM_WIN32)
+    std::wstring strPath = utf8_decode(path);
+    ret = DirectoryExists(strPath.c_str());
+#else
+    ret = DirectoryExists(path.c_str());
+#endif
+    return ret;
+}
+
+std::vector<std::string> Local_Storage::get_drive_list()
+{
+    std::vector<std::string> ret;
+#if defined(STEAM_WIN32)
+    DWORD drives = GetLogicalDrives();
+    if (drives != 0) {
+        for (unsigned int x = 0; x < 26; x++) {
+            if (drives & (((DWORD)0x1) << x)) {
+                char tmp[2] = { 'A' + (char)x, '\0' };
+                ret.push_back(std::string(tmp) + ":");
+            }
+        }
+    }
+#else
+    //TODO: Parse /proc/self/mountinfo
+    ret.push_back("/");
+#endif
+    return ret;
+}
+
 void Local_Storage::setAppId(uint32 appid)
 {
     this->appid = std::to_string(appid) + PATH_SEPARATOR;
 }
 
-int Local_Storage::store_file_data(std::string folder, std::string file, char *data, unsigned int length)
+int Local_Storage::store_file_data(std::string folder, std::string file, const char *data, unsigned int length)
 {
     if (folder.back() != *PATH_SEPARATOR) {
         folder.append(PATH_SEPARATOR);
@@ -556,9 +836,60 @@ int Local_Storage::store_data(std::string folder, std::string file, char *data, 
     return store_file_data(save_directory + appid + folder, file, data, length);
 }
 
-int Local_Storage::store_data_settings(std::string file, char *data, unsigned int length)
+int Local_Storage::store_data_settings(std::string file, const char *data, unsigned int length)
 {
     return store_file_data(get_global_settings_path(), file, data, length);
+}
+
+int Local_Storage::copy_file_data(std::string src_full_path, std::string dest_full_path)
+{
+    std::ifstream srcfile;
+    std::ofstream destfile;
+    char * buf = NULL;
+    size_t readcount = 0;
+    const size_t bufsize = 1024;
+    bool fail = false;
+
+    buf = new char[bufsize];
+    if (buf == NULL) return -1;
+
+    srcfile.open(utf8_decode(src_full_path), std::ios::binary | std::ios::in);
+    if (!srcfile.is_open()) {
+        delete buf;
+        buf = NULL;
+        return -1;
+    }
+
+    destfile.open(utf8_decode(dest_full_path), std::ios::binary | std::ios::out);
+    if (!destfile.is_open()) {
+        delete buf;
+        buf = NULL;
+        srcfile.close();
+        return -1;
+    }
+
+    srcfile.seekg(0, std::ios::beg);
+    destfile.seekp(0, std::ios::beg);
+
+    do {
+      buf[readcount] = srcfile.get();
+      if (srcfile.eof() || (readcount + 1) == bufsize) {
+          destfile.write(buf, (readcount + 1));
+          readcount = 0;
+      } else {
+          readcount++;
+      }
+      if (srcfile.fail() || destfile.fail()) {
+          fail = true;
+      }
+    } while (srcfile.eof() == false && srcfile.fail() == false && destfile.fail() == false);
+
+    srcfile.close();
+    destfile.close();
+    reset_LastError();
+    delete buf;
+    buf = NULL;
+    return (!fail) ? 1 : 0;
 }
 
 int Local_Storage::get_file_data(std::string full_path, char *data, unsigned int max_length, unsigned int offset)
@@ -612,6 +943,14 @@ bool Local_Storage::file_exists(std::string folder, std::string file)
     return file_exists_(full_path);
 }
 
+bool Local_Storage::data_settings_exists(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return file_exists_(full_path);
+}
+
 unsigned int Local_Storage::file_size(std::string folder, std::string file)
 {
     file = sanitize_file_name(file);
@@ -623,6 +962,23 @@ unsigned int Local_Storage::file_size(std::string folder, std::string file)
     return file_size_(full_path);
 }
 
+unsigned int Local_Storage::data_settings_size(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return file_size_(full_path);
+}
+
+bool _internal_file_delete(std::string & full_path)
+{
+#if defined(STEAM_WIN32)
+    return _wremove(utf8_decode(full_path).c_str()) == 0;
+#else
+    return remove(full_path.c_str()) == 0;
+#endif
+}
+
 bool Local_Storage::file_delete(std::string folder, std::string file)
 {
     file = sanitize_file_name(file);
@@ -631,11 +987,15 @@ bool Local_Storage::file_delete(std::string folder, std::string file)
     }
 
     std::string full_path = save_directory + appid + folder + file;
-#if defined(STEAM_WIN32)
-    return _wremove(utf8_decode(full_path).c_str()) == 0;
-#else
-    return remove(full_path.c_str()) == 0;
-#endif
+    return _internal_file_delete(full_path);
+}
+
+bool Local_Storage::delete_data_settings(std::string file)
+{
+    file = sanitize_file_name(file);
+
+    std::string full_path = get_global_settings_path() + file;
+    return _internal_file_delete(full_path);
 }
 
 uint64_t Local_Storage::file_timestamp(std::string folder, std::string file)
@@ -717,7 +1077,7 @@ bool Local_Storage::load_json(std::string full_path, nlohmann::json& json)
 
         try {
             json = std::move(nlohmann::json::parse(buffer));
-            PRINT_DEBUG("Loaded json \"%s\". Loaded %u items.\n", full_path.c_str(), json.size());
+            PRINT_DEBUG("Loaded json \"%s\". Loaded %" PRI_ZU " items.\n", full_path.c_str(), json.size());
             return true;
         } catch (std::exception& e) {
             PRINT_DEBUG("Error while parsing \"%s\" json: %s\n", full_path.c_str(), e.what());
@@ -766,10 +1126,11 @@ bool Local_Storage::write_json_file(std::string folder, std::string const&file, 
     return false;
 }
 
-std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path)
+std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height)
 {
     std::vector<image_pixel_t> res;
-    int width, height;
+    int32_t width = 0;
+    int32_t height = 0;
     image_pixel_t* img = (image_pixel_t*)stbi_load(image_path.c_str(), &width, &height, nullptr, 4);
     if (img != nullptr)
     {
@@ -777,10 +1138,74 @@ std::vector<image_pixel_t> Local_Storage::load_image(std::string const& image_pa
         std::copy(img, img + width * height, res.begin());
 
         stbi_image_free(img);
+    } else {
+        width = 0;
+        height = 0;
+        PRINT_DEBUG("%s %s. reason: %s\n", "Failed to load image at", image_path.c_str(), stbi_failure_reason());
+    }
+    if (out_width != nullptr) {
+        if (width > 0) {
+            *out_width = static_cast<uint32_t>(width);
+        } else {
+            *out_width = 0;
+        }
+    }
+    if (out_height != nullptr) {
+        if (height > 0) {
+            *out_height = static_cast<uint32_t>(height);
+        } else {
+            *out_height = 0;
+        }
     }
 
     reset_LastError();
     return res;
+}
+
+int32_t Local_Storage::save_avatar_image(int32_t eAvatarSize, int32_t width, int32_t height, uint8_t * img_ptr)
+{
+    int32_t ret = 0;
+    std::string image_path = "";
+    switch (eAvatarSize) {
+        case k_EAvatarSize32x32:
+            if (width > 0 &&
+                width <= 32 &&
+                height > 0 &&
+                height <= 32) {
+                image_path += "avatar_small.";
+            }
+            break;
+        case k_EAvatarSize64x64:
+            if (width > 32 &&
+                width <= 64 &&
+                height > 32 &&
+                height <= 64) {
+                image_path += "avatar_medium.";
+            }
+            break;
+        case k_EAvatarSize184x184:
+            if (width > 64 &&
+                width <= 184 &&
+                height > 64 &&
+                height <= 184) {
+                image_path += "avatar_large.";
+            }
+            break;
+        case k_EAvatarSizeMAX:
+        default:
+            image_path.clear();
+            break;
+    };
+
+    if (image_path.length() > 0 && img_ptr != NULL) {
+        delete_data_settings(image_path + "jpg");
+        image_path += "png";
+        delete_data_settings(image_path);
+
+        image_path = get_global_settings_path() + image_path;
+        ret = (stbi_write_png(image_path.c_str(), width, height, 4, img_ptr, 0) == 1);
+    }
+    return ret;
 }
 
 bool Local_Storage::save_screenshot(std::string const& image_path, uint8_t* img_ptr, int32_t width, int32_t height, int32_t channels)

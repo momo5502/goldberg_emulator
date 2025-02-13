@@ -17,6 +17,9 @@
 
 #include "base.h"
  
+#ifndef INCLUDED_STEAM_GAMESERVERSTATS_H
+#define INCLUDED_STEAM_GAMESERVERSTATS_H
+ 
 //-----------------------------------------------------------------------------
 // Purpose: Functions for authenticating users via Steam to play on a game server
 //-----------------------------------------------------------------------------
@@ -61,3 +64,5 @@ public:
 	STEAM_CALL_RESULT( GSStatsStored_t )
 	SteamAPICall_t StoreUserStats( CSteamID steamIDUser );
 };
+
+#endif // INCLUDED_STEAM_GAMESERVERSTATS_H

@@ -17,6 +17,9 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_MASTERSERVER_UPDATER_H
+#define INCLUDED_STEAM_MASTERSERVER_UPDATER_H
+
 class Steam_Masterserver_Updater :
 public ISteamMasterServerUpdater
 {
@@ -173,12 +176,64 @@ void ForceHeartbeat()
 bool AddMasterServer( const char *pServerAddress )
 {
     PRINT_DEBUG("Steam_Masterserver_Updater::AddMasterServer\n");
+
+    IP_PORT addr;
+
+    if (pServerAddress)
+    {
+        addr.ip = (uint32)*pServerAddress;
+        if (pServerAddress[(sizeof(uint32))] != 0)
+        {
+            addr.port = (uint16)*(pServerAddress + sizeof(uint32));
+        }
+        else
+        {
+            addr.port = 27016;
+        }
+        PRINT_DEBUG("Steam_Masterserver_Updater::AddMasterServer pServerAddress IP: %d, PORT: %d", addr.ip, addr.port);
+        this->settings->custom_master_server.insert(addr);
+    }
+
     return true;
 }
 
 bool RemoveMasterServer( const char *pServerAddress )
 {
     PRINT_DEBUG("Steam_Masterserver_Updater::RemoveMasterServer\n");
+
+    std::set<IP_PORT>::iterator iter;
+    IP_PORT addr;
+    IP_PORT list;
+
+    if (pServerAddress)
+    {
+        addr.ip = (uint32)*pServerAddress;
+        if (pServerAddress[(sizeof(uint32))] != 0)
+        {
+            addr.port = (uint16)*(pServerAddress + sizeof(uint32));
+        }
+        else
+        {
+            addr.port = 27016;
+        }
+        PRINT_DEBUG("Steam_Masterserver_Updater::RemoveMasterServer pServerAddress IP: %d, PORT: %d", addr.ip, addr.port);
+
+        iter = this->settings->custom_master_server.begin();
+        while (iter != this->settings->custom_master_server.end())
+        {
+            list = (*iter);
+            if (addr.ip == list.ip &&
+                (addr.port == list.port || (list.port == 0 && addr.port == 27016)))
+            {
+                iter = this->settings->custom_master_server.erase(iter);
+            }
+            else
+            {
+                iter++;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -186,7 +241,7 @@ bool RemoveMasterServer( const char *pServerAddress )
 int GetNumMasterServers()
 {
     PRINT_DEBUG("Steam_Masterserver_Updater::GetNumMasterServers\n");
-    return 0;
+    return this->settings->custom_master_server.size();
 }
 
 
@@ -194,7 +249,38 @@ int GetNumMasterServers()
 int GetMasterServerAddress( int iServer, char *pOut, int outBufferSize )
 {
     PRINT_DEBUG("Steam_Masterserver_Updater::GetMasterServerAddress\n");
-    return 0;
+
+    size_t written_bytes = 0;
+	char * byte_cpy = NULL;
+    std::set<IP_PORT>::iterator iter;
+    IP_PORT addr;
+
+    if (pOut && outBufferSize >= sizeof(uint32) && this->settings->custom_master_server.size() > 0)
+    {
+        iter = this->settings->custom_master_server.begin();
+        while (written_bytes < outBufferSize && iter != this->settings->custom_master_server.end())
+        {
+            addr = (*iter);
+			byte_cpy = (char*)&(addr.ip);
+            for (size_t x = 0; x < sizeof(addr.ip) && written_bytes < outBufferSize; x++)
+            {
+				memcpy(pOut + x, byte_cpy + x, 1);
+                written_bytes++;
+            }
+            if (addr.port != 0 && addr.port != 27016) // Default updater port.
+            {
+				byte_cpy = (char*)&(addr.port);
+                for (size_t x = 0; x < sizeof(addr.port) && written_bytes < outBufferSize; x++)
+                {
+                    memcpy(pOut + x, byte_cpy + x, 1);
+                    written_bytes++;
+                }
+            }
+            iter++;
+        }
+    }
+
+    return written_bytes;
 }
 
 
@@ -217,3 +303,5 @@ void Callback(Common_Message *msg)
 }
 
 };
+
+#endif // INCLUDED_STEAM_MASTERSERVER_UPDATER_H

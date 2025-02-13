@@ -41,6 +41,13 @@ struct image_t
     std::vector<image_pixel_t> pix_map;
 };
 
+std::string convert_vector_image_pixel_t_to_std_string(std::vector<image_pixel_t> in);
+std::string convert_raw_uint8_to_png_std_string(uint8 * in, int width, int height, int components);
+std::string convert_raw_uint8_to_jpg_std_string(uint8 * in, int width, int height, int components);
+
+std::string convert_png_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components);
+std::string convert_jpg_buffer_std_string_to_std_string_uint8(std::string in, int * width, int * height, int * components, int desired_components);
+
 class Local_Storage {
 public:
     static constexpr auto inventory_storage_folder = "inventory";
@@ -58,22 +65,30 @@ private:
 public:
     static std::string get_program_path();
     static std::string get_game_settings_path();
+    static std::string get_user_pictures_path();
     static std::string get_user_appdata_path();
+    static std::string get_parent_directory(std::string &path);
+    static std::vector<std::string> get_drive_list();
+    static bool is_directory(std::string &path);
     Local_Storage(std::string save_directory);
     static int get_file_data(std::string full_path, char *data, unsigned int max_length, unsigned int offset=0);
+    static int copy_file_data(std::string src_full_path, std::string dest_full_path);
     void setAppId(uint32 appid);
-    static int store_file_data(std::string folder, std::string file, char *data, unsigned int length);
+    static int store_file_data(std::string folder, std::string file, const char *data, unsigned int length);
     static std::vector<std::string> get_filenames_path(std::string path);
 
     int store_data(std::string folder, std::string file, char *data, unsigned int length);
-    int store_data_settings(std::string file, char *data, unsigned int length);
+    int store_data_settings(std::string file, const char *data, unsigned int length);
     int get_data(std::string folder, std::string file, char *data, unsigned int max_length, unsigned int offset=0);
     int get_data_settings(std::string file, char *data, unsigned int max_length);
     int count_files(std::string folder);
     bool iterate_file(std::string folder, int index, char *output_filename, int32 *output_size);
     bool file_exists(std::string folder, std::string file);
+    bool data_settings_exists(std::string file);
     unsigned int file_size(std::string folder, std::string file);
+    unsigned int data_settings_size(std::string file);
     bool file_delete(std::string folder, std::string file);
+    bool delete_data_settings(std::string file);
     uint64_t file_timestamp(std::string folder, std::string file);
     std::string get_global_settings_path();
     std::string get_path(std::string folder);
@@ -84,7 +99,8 @@ public:
     bool load_json_file(std::string folder, std::string const& file, nlohmann::json& json);
     bool write_json_file(std::string folder, std::string const& file, nlohmann::json const& json);
 
-    std::vector<image_pixel_t> load_image(std::string const& image_path);
+    std::vector<image_pixel_t> load_image(std::string const& image_path, uint32_t * out_width, uint32_t * out_height);
+    int32_t save_avatar_image(int32_t eAvatarSize, int32_t width, int32_t height, uint8_t * img_ptr);
     bool save_screenshot(std::string const& image_path, uint8_t* img_ptr, int32_t width, int32_t height, int32_t channels);
 };
 

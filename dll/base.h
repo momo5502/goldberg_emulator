@@ -325,12 +325,12 @@ public:
 
         if (std::find(callbacks[iCallback].callbacks.begin(), callbacks[iCallback].callbacks.end(), cb) == callbacks[iCallback].callbacks.end()) {
             callbacks[iCallback].callbacks.push_back(cb);
-            CCallbackMgr::SetRegister(cb, iCallback);
             for (auto & res: callbacks[iCallback].results) {
                 //TODO: timeout?
                 SteamAPICall_t api_id = results->addCallResult(iCallback, &(res[0]), res.size(), 0.0, false);
                 results->addCallBack(api_id, cb);
             }
+            CCallbackMgr::SetRegister(cb, iCallback);
         }
     }
 

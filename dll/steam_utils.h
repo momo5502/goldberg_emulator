@@ -19,6 +19,9 @@
 #include "local_storage.h"
 #include "../overlay_experimental/steam_overlay.h"
 
+#ifndef INCLUDED_STEAM_UTILS_H
+#define INCLUDED_STEAM_UTILS_H
+
 static std::chrono::time_point<std::chrono::steady_clock> app_initialized_time = std::chrono::steady_clock::now();
 
 
@@ -113,7 +116,10 @@ bool GetImageRGBA( int iImage, uint8 *pubDest, int nDestBufferSize )
     if (image == settings->images.end()) return false;
 
     unsigned size = image->second.data.size();
-    if (nDestBufferSize < size) size = nDestBufferSize;
+    if (nDestBufferSize < size) {
+        PRINT_DEBUG("GetImageRGBA %i Given buffer too small. Got 0x%x bytes. Need 0x%x bytes.\n", iImage, nDestBufferSize, size);
+        size = nDestBufferSize;
+    }
     image->second.data.copy((char *)pubDest, nDestBufferSize);
     return true;
 }
@@ -442,3 +448,5 @@ bool DismissFloatingGamepadTextInput()
 }
 
 };
+
+#endif // INCLUDED_STEAM_UTILS_H

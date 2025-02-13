@@ -53,6 +53,9 @@
 
 #include "../overlay_experimental/steam_overlay.h"
 
+#ifndef INCLUDED_STEAM_CLIENT_H
+#define INCLUDED_STEAM_CLIENT_H
+
 enum Steam_Pipe {
     NO_USER,
     CLIENT,
@@ -75,6 +78,7 @@ public ISteamClient018,
 public ISteamClient019,
 public ISteamClient
 {
+// Some games (SAO:FB) use pointer math to access the class so member order is important.
 public:
     Networking *network;
     SteamCallResults *callback_results_server, *callback_results_client;
@@ -94,6 +98,7 @@ public:
     Steam_Remote_Storage *steam_remote_storage;
     Steam_Screenshots *steam_screenshots;
     Steam_HTTP *steam_http;
+    Steam_Unified_Messages *steam_unified_messages;
     Steam_Controller *steam_controller;
     Steam_UGC *steam_ugc;
     Steam_Applist *steam_applist;
@@ -108,7 +113,6 @@ public:
     Steam_Networking_Messages *steam_networking_messages;
     Steam_Game_Coordinator *steam_game_coordinator;
     Steam_Networking_Utils *steam_networking_utils;
-    Steam_Unified_Messages *steam_unified_messages;
     Steam_Game_Search *steam_game_search;
     Steam_Parties *steam_parties;
     Steam_RemotePlay *steam_remoteplay;
@@ -302,3 +306,5 @@ public:
 
     void DestroyAllInterfaces();
 };
+
+#endif // INCLUDED_STEAM_CLIENT_H

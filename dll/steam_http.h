@@ -17,6 +17,8 @@
 
 #include "base.h"
 
+#ifndef INCLUDED_STEAM_HTTP_H
+#define INCLUDED_STEAM_HTTP_H
 
 struct Steam_Http_Request {
 	HTTPRequestHandle handle;
@@ -152,3 +154,5 @@ public:
 	// Check if the reason the request failed was because we timed it out (rather than some harder failure)
 	bool GetHTTPRequestWasTimedOut( HTTPRequestHandle hRequest, bool *pbWasTimedOut );
 };
+
+#endif // INCLUDED_STEAM_HTTP_H

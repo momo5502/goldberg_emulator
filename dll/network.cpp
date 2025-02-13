@@ -513,7 +513,7 @@ std::set<IP_PORT> Networking::resolve_ip(std::string dns)
 
     if (getaddrinfo(dns.c_str(), NULL, NULL, &result) == 0) {
         for (struct addrinfo *res = result; res != NULL; res = res->ai_next) {
-            PRINT_DEBUG("%u %u\n", res->ai_addrlen, res->ai_family);
+            PRINT_DEBUG("%" PRI_ZU " %u\n", res->ai_addrlen, res->ai_family);
             if (res->ai_family == AF_INET) {
                 struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
                 uint32 ip;
@@ -524,6 +524,7 @@ std::set<IP_PORT> Networking::resolve_ip(std::string dns)
                 ips.insert(addr);
             }
         }
+        freeaddrinfo(result);
     }
 
     return ips;
@@ -579,6 +580,11 @@ void Networking::do_callbacks_message(Common_Message *msg)
     if (msg->has_networking_messages()) {
         PRINT_DEBUG("has_networking_messages\n");
         run_callbacks(CALLBACK_ID_NETWORKING_MESSAGES, msg);
+    }
+
+    if (msg->has_friend_avatar()) {
+        PRINT_DEBUG("has_friend_avatar\n");
+        run_callbacks(CALLBACK_ID_FRIEND_AVATAR, msg);
     }
 }
 

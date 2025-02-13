@@ -65,6 +65,18 @@
     #include <ntsecapi.h>
     #undef SystemFunction036
 
+    #ifdef _MSC_VER
+        #ifndef PRIu64
+	        #define PRIu64 "I64u"
+	    #endif
+        #ifndef PRIuPTR
+            #define PRIuPTR "Iu"
+        #endif
+        #define PRI_ZU "Iu" // Format specifier for size_t.
+    #else
+        #include <inttypes.h>
+    #endif
+
     #ifndef EMU_RELEASE_BUILD
         #define PRINT_DEBUG(a, ...) do {FILE *t = fopen("STEAM_LOG.txt", "a"); fprintf(t, "%u " a, GetCurrentThreadId(), __VA_ARGS__); fclose(t); WSASetLastError(0);} while (0)
     #endif
@@ -74,6 +86,7 @@
 
     #ifdef EMU_EXPERIMENTAL_BUILD
         #include <winhttp.h>
+        #include <tlhelp32.h>
 
         #include "../detours/detours.h"
     #endif
@@ -127,6 +140,15 @@ inline void reset_LastError()
     #include <dlfcn.h>
     #include <utime.h>
 
+    #include <inttypes.h>
+    #ifndef PRIu64
+        #define PRIu64 "I64u"
+    #endif
+    #ifndef PRIuPTR
+        #define PRIuPTR "Iu"
+    #endif
+    #define PRI_ZU "zu"
+
     #define PATH_MAX_STRING_SIZE 512
 
     #ifndef EMU_RELEASE_BUILD
@@ -152,6 +174,7 @@ inline void reset_LastError()
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <typeinfo>
 
 #include <vector>
 #include <map>
@@ -203,6 +226,10 @@ inline std::string ascii_to_lowercase(std::string data) {
 
 #define DEFAULT_LANGUAGE "english"
 
+#define DEFAULT_UI_NOTIFICATION_POSITION "top right"
+
 #define LOBBY_CONNECT_APPID ((uint32)-2)
+
+#define FRIEND_AVATAR_MAX_IMAGE_LENGTH (5 * 1024 * 1024)
 
 #endif//__INCLUDED_COMMON_INCLUDES__

@@ -19,14 +19,37 @@
 
 #ifdef __WINDOWS__
 
+HMODULE hadvapi32 = NULL;
+BOOLEAN (NTAPI *real_RtlGenRandom)(PVOID,ULONG) = NULL;
+
 static void
 randombytes(char * const buf, const size_t size)
 {
-    while (!RtlGenRandom((PVOID) buf, (ULONG) size)) {
-        PRINT_DEBUG("RtlGenRandom ERROR\n");
-        Sleep(100);
+    PRINT_DEBUG("%s %p %" PRI_ZU ".\n", "mine_RtlGenRandom() called.", buf, size);
+    if (hadvapi32 == NULL) {
+        hadvapi32 = GetModuleHandleW(L"advapi32.dll");
+        if (hadvapi32 == NULL) {
+            PRINT_DEBUG("%s.\n", "GetModuleHandle() failed for advapi32.dll");
+        }
+        PRINT_DEBUG("advapi32.dll handle: 0x%p.\n", hadvapi32);
     }
-
+    if (hadvapi32 != NULL &&
+        real_RtlGenRandom == NULL) {
+        real_RtlGenRandom = (BOOLEAN(NTAPI *)(PVOID,ULONG))GetProcAddress(hadvapi32, "SystemFunction036");
+        if (real_RtlGenRandom == NULL) {
+            PRINT_DEBUG("%s.\n", "GetProcAddress() failed for RtlGenRandom()");
+        }
+        PRINT_DEBUG("real_RtlGenRandom address: 0x%p.\n", real_RtlGenRandom);
+    }
+    if (real_RtlGenRandom != NULL) {
+        PRINT_DEBUG("%s.\n", "Calling real_RtlGenRandom");
+        while (!real_RtlGenRandom((PVOID) buf, (ULONG) size)) {
+            PRINT_DEBUG("RtlGenRandom ERROR\n");
+            Sleep(100);
+        }
+        PRINT_DEBUG("%s.\n", "real_RtlGenRandom returned");
+    }
+    return;
 }
 
 std::string get_env_variable(std::string name)
@@ -818,16 +841,55 @@ HINTERNET WINAPI Mine_WinHttpOpenRequest(
     return Real_WinHttpOpenRequest(hConnect, pwszVerb, pwszObjectName, pwszVersion, pwszReferrer, ppwszAcceptTypes, dwFlags);
 }
 
-
-
 static bool network_functions_attached = false;
+std::vector<HANDLE> detours_threads;
+
 BOOL WINAPI DllMain( HINSTANCE, DWORD dwReason, LPVOID ) {
     switch ( dwReason ) {
         case DLL_PROCESS_ATTACH:
             if (!file_exists(get_full_program_path() + "disable_lan_only.txt") && !file_exists(get_full_program_path() + "\\steam_settings\\disable_lan_only.txt")) {
                 PRINT_DEBUG("Hooking lan only functions\n");
                 DetourTransactionBegin();
-                DetourUpdateThread( GetCurrentThread() );
+                HANDLE toolHelp = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+                if (toolHelp != INVALID_HANDLE_VALUE) {
+                    THREADENTRY32 te;
+                    te.dwSize = sizeof(THREADENTRY32);
+                    if (Thread32First(toolHelp, &te)) {
+                        bool bUpdatedThread = false;
+                        DWORD myPID = GetCurrentProcessId();
+                        DWORD myTID = GetCurrentThreadId();
+                        HANDLE tHandle;
+                        do {
+                            if (te.dwSize >= FIELD_OFFSET(THREADENTRY32, th32OwnerProcessID) + sizeof(te.th32OwnerProcessID)) {
+                                if (te.th32OwnerProcessID == myPID) {
+                                    if (te.th32ThreadID != myTID) {
+                                        tHandle = OpenThread(THREAD_ALL_ACCESS, false, te.th32ThreadID);
+                                        if (tHandle != NULL) {
+                                            PRINT_DEBUG("Hooking thread %d\n", te.th32ThreadID);
+                                            detours_threads.push_back( tHandle );
+                                            DetourUpdateThread( tHandle );
+                                            bUpdatedThread = true;
+                                        } else {
+                                            PRINT_DEBUG("Unable to hook thread %d\n", te.th32ThreadID);
+                                        }
+                                    } else {//hooking non-pseudo current thread handle is unsupported.
+                                        PRINT_DEBUG("Hooking thread %d\n", myTID);
+                                        DetourUpdateThread( GetCurrentThread() );
+                                        bUpdatedThread = true;
+                                    }
+                                }
+                            }
+                            te.dwSize = sizeof(THREADENTRY32);
+                        } while (Thread32Next(toolHelp, &te));
+                    } else {
+                        PRINT_DEBUG("Unable to iterate thread list, only hooking current thread\n");
+                        DetourUpdateThread( GetCurrentThread() );
+                    }
+                    CloseHandle(toolHelp);
+                } else {
+                    PRINT_DEBUG("Unable to get thread list, only hooking current thread\n");
+                    DetourUpdateThread( GetCurrentThread() );
+                }
                 DetourAttach( &(PVOID &)Real_SendTo, Mine_SendTo );
                 DetourAttach( &(PVOID &)Real_Connect, Mine_Connect );
                 DetourAttach( &(PVOID &)Real_WSAConnect, Mine_WSAConnect );
@@ -848,8 +910,12 @@ BOOL WINAPI DllMain( HINSTANCE, DWORD dwReason, LPVOID ) {
             break;
 
         case DLL_PROCESS_DETACH:
+            std::vector<HANDLE>::iterator it;
             if (network_functions_attached) {
                 DetourTransactionBegin();
+                for (it = detours_threads.begin(); it != detours_threads.end(); it++) {
+                    DetourUpdateThread( *it );
+                }
                 DetourUpdateThread( GetCurrentThread() );
                 DetourDetach( &(PVOID &)Real_SendTo, Mine_SendTo );
                 DetourDetach( &(PVOID &)Real_Connect, Mine_Connect );

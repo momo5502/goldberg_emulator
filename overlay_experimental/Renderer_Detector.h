@@ -27,6 +27,21 @@
 
 #include "Renderer_Hook.h"
 
+/* Timeout is in seconds.
+   Used for determining which rendering API is the real one used by
+   the app when multiple APIs are used. (NVIDIA, Wine, etc.)
+
+   This is an internally used value, separate from the timeout given
+   to DetectRenderer().
+
+   If you define it below the minimal level (one second), the minimal level
+   will be used.
+
+   Any timeout given to DetectRenderer() less than this value will be upgraded
+   to it.
+*/
+#define MAX_RENDERER_API_DETECT_TIMEOUT 1
+
 namespace ingame_overlay {
 
 std::future<Renderer_Hook*> DetectRenderer(std::chrono::milliseconds timeout = std::chrono::milliseconds{ -1 });
