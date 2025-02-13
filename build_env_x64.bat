@@ -12,6 +12,8 @@ if exist "%VS_Base_Path%\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Bu
 if exist "%VS_Base_Path%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" goto vs2022
 if exist "%VS_Base_Path%\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" goto vs2022_bt
 if exist ".\sdk_standalone\set_vars64.bat" goto gitlabci
+if exist "vsinstallloc.txt" goto readloc
+if exist "%VS_Base_Path%\Microsoft Visual Studio\Installer\vswhere.exe" goto wherevs
 
 :vs2022
 call "%VS_Base_Path%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
@@ -44,4 +46,14 @@ goto batend
 :gitlabci
 call ".\sdk_standalone\set_vars64.bat"
 goto batend
+
+:wherevs
+call "%VS_Base_Path%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vsinstallloc.txt
+goto readloc
+
+:readloc
+set /p VS_LOCAL=<vsinstallloc.txt
+call "%VS_LOCAL%\VC\Auxiliary\Build\vcvars64.bat"
+goto batend
+
 :batend

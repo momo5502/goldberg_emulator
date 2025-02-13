@@ -62,48 +62,24 @@ Steam_RemotePlay(class Settings *settings, class Networking *network, class Stea
 }
 
 // Get the number of currently connected Steam Remote Play sessions
-uint32 GetSessionCount()
-{
-    PRINT_DEBUG("Steam_RemotePlay::GetSessionCount\n");
-    return 0;
-}
+uint32 GetSessionCount();
 
 // Get the currently connected Steam Remote Play session ID at the specified index. Returns zero if index is out of bounds.
-uint32 GetSessionID( int iSessionIndex )
-{
-    PRINT_DEBUG("Steam_RemotePlay::GetSessionID\n");
-    return 0;
-}
+uint32 GetSessionID( int iSessionIndex );
 
 // Get the SteamID of the connected user
-CSteamID GetSessionSteamID( uint32 unSessionID )
-{
-    PRINT_DEBUG("Steam_RemotePlay::GetSessionSteamID\n");
-    return k_steamIDNil;
-}
+CSteamID GetSessionSteamID( uint32 unSessionID );
 
 // Get the name of the session client device
 // This returns NULL if the sessionID is not valid
-const char *GetSessionClientName( uint32 unSessionID )
-{
-    PRINT_DEBUG("Steam_RemotePlay::GetSessionClientName\n");
-    return NULL;
-}
+const char *GetSessionClientName( uint32 unSessionID );
 
 // Get the form factor of the session client device
-ESteamDeviceFormFactor GetSessionClientFormFactor( uint32 unSessionID )
-{
-    PRINT_DEBUG("Steam_RemotePlay::GetSessionClientFormFactor\n");
-    return k_ESteamDeviceFormFactorUnknown;
-}
+ESteamDeviceFormFactor GetSessionClientFormFactor( uint32 unSessionID );
 
 // Get the resolution, in pixels, of the session client device
 // This is set to 0x0 if the resolution is not available
-bool BGetSessionClientResolution( uint32 unSessionID, int *pnResolutionX, int *pnResolutionY )
-{
-    PRINT_DEBUG("Steam_RemotePlay::BGetSessionClientResolution\n");
-    return false;
-}
+bool BGetSessionClientResolution( uint32 unSessionID, int *pnResolutionX, int *pnResolutionY );
 
 // Invite a friend to Remote Play Together
 // This returns false if the invite can't be sent

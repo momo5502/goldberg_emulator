@@ -1,0 +1,13 @@
+# Set the default behavior.
+* text=auto
+
+# Unix shell files should always be LF.
+*.sh text eol=lf
+
+# Windows shell files should always be CRLF.
+*.bat text eol=crlf
+
+# Binary files.
+*.jpg binary
+*.png binary
+

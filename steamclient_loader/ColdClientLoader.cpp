@@ -32,6 +32,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	WCHAR ExeRunDir[MAX_PATH] = { 0 };
 	WCHAR ExeCommandLine[4096] = { 0 };
 	WCHAR AppId[128] = { 0 };
+	HANDLE SharedMemFileMap = 0;
+	HANDLE SharedMemFileView = 0;
+	HANDLE SharedMemFileLock = 0;
 
 	STARTUPINFOW info = { sizeof(info) };
 	PROCESS_INFORMATION processInfo;
@@ -100,11 +103,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		return 0;
 	}
 
+    // Create shared mem map.
+    SharedMemFileMap = CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 1024, L"Local\\SteamStart_SharedMemFile");
+    if (!SharedMemFileMap)
+    {
+        MessageBoxA(NULL, "Unable to create shared memory mapping.", "ColdClientLoader", MB_ICONERROR);
+        return 0;
+    }
+    SharedMemFileView = MapViewOfFile(SharedMemFileMap, SECTION_ALL_ACCESS, 0, 0, 0);
+    if (!SharedMemFileView)
+    {
+        MessageBoxA(NULL, "Unable to create view of shared memory mapping.", "ColdClientLoader", MB_ICONERROR);
+        CloseHandle(SharedMemFileMap);
+        return 0;
+    }
+    SharedMemFileLock = CreateEventW(NULL, FALSE, FALSE, L"Local\\SteamStart_SharedMemLock");
+    if (!SharedMemFileLock)
+    {
+        MessageBoxA(NULL, "Unable to create lock for shared memory mapping.", "ColdClientLoader", MB_ICONERROR);
+        CloseHandle(SharedMemFileView);
+        CloseHandle(SharedMemFileMap);
+        return 0;
+    }
+    SetEvent(SharedMemFileLock);
+
 	WCHAR CommandLine[8192];
 	_snwprintf(CommandLine, _countof(CommandLine), L"\"%ls\" %ls", ExeFile, ExeCommandLine);
 	if (!ExeFile[0] || !CreateProcessW(ExeFile, CommandLine, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, ExeRunDir, &info, &processInfo))
 	{
 		MessageBoxA(NULL, "Unable to load the requested EXE file.", "ColdClientLoader", MB_ICONERROR);
+		CloseHandle(SharedMemFileLock);
+		CloseHandle(SharedMemFileView);
+        CloseHandle(SharedMemFileMap);
 		return 0;
 	}
 	HKEY Registrykey;
@@ -130,6 +160,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		{
 			MessageBoxA(NULL, "Unable to patch Steam process informations on the Windows registry.", "ColdClientLoader", MB_ICONERROR);
 			TerminateProcess(processInfo.hProcess, NULL);
+			CloseHandle(SharedMemFileLock);
+            CloseHandle(SharedMemFileView);
+            CloseHandle(SharedMemFileMap);
 			return 0;
 		}
 	}
@@ -174,6 +207,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			RegCloseKey(Registrykey);
 		}
 	}
+
+    // Close the SharedMem handles.
+    CloseHandle(SharedMemFileLock);
+	CloseHandle(SharedMemFileView);
+    CloseHandle(SharedMemFileMap);
 
 	return 0;
 }
