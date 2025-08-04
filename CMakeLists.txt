@@ -28,9 +28,62 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(FetchContent)
+
+option(protobuf_BUILD_TESTS "" OFF)
+option(protobuf_BUILD_EXAMPLES "" OFF)
+option(protobuf_BUILD_PROTOC_BINARIES "" ON)
+option(protobuf_BUILD_LIBPROTOC "" ON)
+option(protobuf_WITH_ZLIB "" OFF)
+
+FetchContent_Declare(
+    protobuf
+    GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+    GIT_TAG c18477fab24fee9a667965d9ea537e80f1648698
+    SOURCE_SUBDIR cmake
+)
+
+FetchContent_MakeAvailable(protobuf)
+
+set(Protobuf_INCLUDE_DIRS ${protobuf_SOURCE_DIR}/src)
+set(Protobuf_LIBRARIES protobuf::libprotobuf)
+set(Protobuf_PROTOC_EXECUTABLE $<TARGET_FILE:protobuf::protoc>)
+
+function(protobuf_generate_cpp SRCS HDRS)
+    cmake_parse_arguments(protobuf_generate_cpp "" "EXPORT_MACRO;DESCRIPTORS" "PROTOS" ${ARGN})
+    
+    set(_protobuf_include_path -I${CMAKE_CURRENT_SOURCE_DIR})
+    
+    foreach(FIL ${ARGN})
+        get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
+        get_filename_component(FIL_WE ${FIL} NAME_WE)
+        get_filename_component(FIL_NAME ${FIL} NAME)
+        get_filename_component(FIL_DIR ${ABS_FIL} DIRECTORY)
+        
+        set(_generated_srcs ${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb.cc)
+        set(_generated_hdrs ${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb.h)
+
+        add_custom_command(
+            OUTPUT ${_generated_srcs} ${_generated_hdrs}
+            COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+            ARGS "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "-I${FIL_DIR}" "${FIL_NAME}"
+            DEPENDS "${ABS_FIL}" protobuf::protoc
+            COMMENT "Running C++ protocol buffer compiler on ${FIL}"
+            DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+            VERBATIM
+        )
+        
+        list(APPEND ${SRCS} ${_generated_srcs})
+        list(APPEND ${HDRS} ${_generated_hdrs})
+    endforeach()
+    
+    set(${SRCS} ${${SRCS}} PARENT_SCOPE)
+    set(${HDRS} ${${HDRS}} PARENT_SCOPE)
+endfunction()
+
 # Find the protobuf compiler and libraries
-include(FindProtobuf)
-find_package(Protobuf 3.1.0 REQUIRED)
+#include(FindProtobuf)
+#find_package(Protobuf 3.1.0 REQUIRED)
 
 # Generate the .h and .cxx files for dll/net.proto
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS dll/net.proto)
