@@ -24,7 +24,7 @@ endif()
 option(EMU_EXPERIMENTAL_BUILD "Enable experimental build" OFF)
 
 # Set CXX standard
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -87,6 +87,9 @@ endfunction()
 
 # Generate the .h and .cxx files for dll/net.proto
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS dll/net.proto)
+
+add_subdirectory(deps)
+add_subdirectory(hooking)
 
 # Print path to generated files
 message(STATUS "PROTO_SRCS = ${PROTO_SRCS}")
@@ -176,6 +179,7 @@ target_include_directories(${LIB_STEAM_API}
 # Link the required libraries
 target_link_libraries(${LIB_STEAM_API}
 	PRIVATE
+  hooking
 	protobuf::libprotobuf
 	$<$<BOOL:${WIN32}>:ws2_32>
 	$<$<BOOL:${WIN32}>:iphlpapi>
