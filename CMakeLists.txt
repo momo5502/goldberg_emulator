@@ -90,6 +90,7 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS dll/net.proto)
 
 add_subdirectory(deps)
 add_subdirectory(hooking)
+add_subdirectory(dsound)
 
 # Print path to generated files
 message(STATUS "PROTO_SRCS = ${PROTO_SRCS}")

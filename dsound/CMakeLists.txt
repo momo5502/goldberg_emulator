@@ -1,0 +1,1 @@
+add_library(dsound SHARED dsound.cpp)
