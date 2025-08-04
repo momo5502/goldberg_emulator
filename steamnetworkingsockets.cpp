@@ -115,11 +115,11 @@ extern "C" __declspec( dllexport ) void *SteamNetworkingSocketsGameServer()
     return networking_sockets_gameserver;
 }
 
-extern "C" __declspec( dllexport ) void *SteamNetworkingSockets()
+/*extern "C" __declspec( dllexport ) void *SteamNetworkingSockets()
 {
     PRINT_DEBUG("SteamNetworkingSockets\n");
     return networking_sockets;
-}
+}*/
 
 const int k_cchMaxSteamDatagramErrMsg = 1024;
 typedef char SteamDatagramErrMsg[ k_cchMaxSteamDatagramErrMsg ];
@@ -177,11 +177,11 @@ extern "C" __declspec( dllexport ) bool SteamDatagramServer_Init_Internal( Steam
 
 
 
-extern "C" __declspec( dllexport ) void *SteamNetworkingUtils()
+/*extern "C" __declspec( dllexport ) void *SteamNetworkingUtils()
 {
     PRINT_DEBUG("SteamNetworkingUtils\n");
     return networking_utils;
-}
+}*/
 
 extern "C" __declspec( dllexport ) void *SteamNetworkingP2P()
 {
